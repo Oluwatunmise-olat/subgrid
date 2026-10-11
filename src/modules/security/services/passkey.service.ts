@@ -174,7 +174,7 @@ export class PasskeyService {
 
 		const token = jwt.sign({ action: pending.action }, this.requireApprovalSecret(), { expiresIn: webauthn.approval_ttl_seconds });
 
-		return { status: true, message: 'Approved', data: { approval_token: token } };
+		return { status: true, message: 'Approved', data: { approval_token: token, action: pending.action } };
 	}
 
 	public verifyApprovalToken(token: string | undefined, expectedAction: string) {

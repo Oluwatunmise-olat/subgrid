@@ -20,6 +20,8 @@ export const webauthn = {
 	origin: process.env.RP_ORIGIN || 'http://localhost:5173',
 	approval_secret: process.env.APPROVAL_SECRET,
 	approval_ttl_seconds: 300,
+	session_cookie_name: 'subgrid_session',
+	session_ttl_seconds: 60 * 60 * 24 * 30,
 };
 
 const getDbSslConfig = () => {
