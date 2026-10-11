@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "outDir": "./dist",
+    "moduleResolution": "node",
+    "module": "commonjs",
+    "target": "ESNext",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "es2021"
+    ],
+    "esModuleInterop": true,
+    "sourceMap": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "noUnusedLocals": false,
+    "typeRoots": [
+      "./node_modules/@types",
+      "./src/common/types"
+    ],
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "paths": {
+      "@/*": [
+        "src/*"
+      ]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "migrations"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.spec.ts"
+  ]
+}

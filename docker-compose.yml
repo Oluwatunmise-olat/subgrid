@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: subgrid
+    ports:
+      - "5434:5432"
+    volumes:
+      - subgrid_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  adminer:
+    image: adminer:latest
+    restart: unless-stopped
+    ports:
+      - "8083:8080"
+    depends_on:
+      - postgres
+
+volumes:
+  subgrid_postgres_data:
