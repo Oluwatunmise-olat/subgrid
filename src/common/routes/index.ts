@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 
 import { mcpRegistryRoutes } from "@/modules/mcp-registry/mcp-registry.routes";
+import { mcpOAuthRoutes } from "@/modules/mcp-registry/oauth.routes";
 import { orchestratorRoutes } from "@/modules/orchestrator/orchestrator.routes";
 import { projectsRoutes } from "@/modules/projects/projects.routes";
 import { securityRoutes } from "@/modules/security/security.routes";
@@ -25,5 +26,6 @@ export default (server: AppServer): void => {
 
   projectsRoutes(server, `${RoutePrefix.V1}/projects`);
   mcpRegistryRoutes(server, `${RoutePrefix.V1}/mcp-servers`);
+  mcpOAuthRoutes(server, `${RoutePrefix.V1}/mcp-servers`);
   orchestratorRoutes(server, `${RoutePrefix.V1}/mcp-servers`);
 };

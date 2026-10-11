@@ -9,7 +9,8 @@ export const app = {
 	port: Number(process.env.PORT) || 8081,
 	address: process.env.SERVER_ADDRESS || '0.0.0.0',
 	env: process.env.NODE_ENV || 'development',
-	client_url: process.env.CLIENT_URL,
+	url: process.env.APP_URL || 'http://localhost:8081',
+	client_url: process.env.CLIENT_URL || 'http://localhost:5173',
 	client_origin: process.env.CLIENT_URL || 'http://localhost:5173',
 	encryption_key: process.env.ENCRYPTION_KEY,
 };

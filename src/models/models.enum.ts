@@ -3,4 +3,5 @@ export const MODEL_TYPE_PREFIXES: Record<string, string> = {
 	action_logs: 'log',
 	projects: 'proj',
 	webauthn_credentials: 'pk',
+	oauth_connections: 'oauth',
 };

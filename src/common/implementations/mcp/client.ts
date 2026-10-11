@@ -1,10 +1,14 @@
+import { container } from 'tsyringe';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
 import { McpConnectionError } from '@/common/utils/errors/app.error';
 import { McpServerSecrets, McpServerType } from '@/models/mcp-server.model';
 import { decryptJson } from '@/common/utils/encrypt-decrypt';
+import { OAuthConnectionsRepository } from '@/repositories';
+import { SubgridOAuthProvider } from './oauth-provider';
 
 const getSecrets = (server: McpServerType): McpServerSecrets => {
 	if (!server.secrets_cipher || !server.secrets_nonce || !server.secrets_tag) {
@@ -40,8 +44,18 @@ export const connectToMcpServer = async (server: McpServerType): Promise<Client>
 		if (server.transport === 'sse' || server.transport === 'http') {
 			if (!server.url) throw new McpConnectionError(`"${server.name}" has no url configured for ${server.transport} transport`);
 
-			const transport = new SSEClientTransport(new URL(server.url), {
-				requestInit: { headers: secrets.headers || {} },
+			const oauthConnectionsRepository = container.resolve(OAuthConnectionsRepository);
+			const oauthRow = await oauthConnectionsRepository.getByServerId(server.id);
+			const hasOAuth = Boolean(oauthRow?.tokens_cipher);
+
+			const authProvider = hasOAuth ? new SubgridOAuthProvider(server.id, oauthConnectionsRepository) : undefined;
+
+			// Static API-token header auth and OAuth are mutually exclusive per server - whichever
+			// was actually configured (see mcp-registry.service / oauth.service) wins.
+			const TransportClass = server.transport === 'http' ? StreamableHTTPClientTransport : SSEClientTransport;
+
+			const transport = new TransportClass(new URL(server.url), {
+				...(authProvider ? { authProvider } : { requestInit: { headers: secrets.headers || {} } }),
 			});
 
 			await client.connect(transport);
