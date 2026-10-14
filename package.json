@@ -12,9 +12,20 @@
 		"dev": "bun --watch src/index.ts",
 		"build": "bun build ./src/index.ts --outdir ./dist --target bun --external '*'",
 		"migrate": "bun node_modules/.bin/knex migrate:latest --knexfile knexfile.ts",
-		"migrate:rollback": "bun node_modules/.bin/knex migrate:rollback --knexfile knexfile.ts"
+		"migrate:rollback": "bun node_modules/.bin/knex migrate:rollback --knexfile knexfile.ts",
+		"verify:http-bridge": "bun tests/verify-http-bridge.ts",
+		"verify:rest-component": "bun tests/verify-rest-component.ts",
+		"verify:sigv4": "bun tests/verify-sigv4.ts",
+		"verify:s3-bridge": "bun tests/verify-s3-bridge.ts",
+		"verify:audit-scope": "bun tests/verify-audit-scope.ts",
+		"verify:catalog": "bun tests/verify-catalog.ts",
+		"verify:suggest": "bun tests/verify-suggest.ts",
+		"verify:api-smoke": "bun tests/verify-api-smoke.ts",
+		"verify:result-normalizer": "bun tests/verify-result-normalizer.ts"
 	},
 	"dependencies": {
+		"@langchain/core": "^1.2.17",
+		"@langchain/openai": "^1.6.2",
 		"@modelcontextprotocol/sdk": "^1.12.0",
 		"@simplewebauthn/server": "^14.0.3",
 		"body-parser": "1.20.2",

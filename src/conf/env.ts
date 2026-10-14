@@ -15,6 +15,23 @@ export const app = {
 	encryption_key: process.env.ENCRYPTION_KEY,
 };
 
+export const embedders = {
+	openai: {
+		apiKey: process.env.OPENAI_API_KEY,
+		chat_model: process.env.OPENAI_CHAT_MODEL || 'gpt-3.5-turbo',
+	},
+	openrouter: {
+		apiKey: process.env.OPENROUTER_API_KEY,
+		model: process.env.OPENROUTER_MODEL || 'google/gemini-flash-1.5-8b',
+		baseUrl: 'https://openrouter.ai/api/v1',
+	},
+};
+
+export const llm = {
+	timeout_ms: Number(process.env.LLM_TIMEOUT_MS) || 30_000,
+	max_output_tokens: Number(process.env.LLM_MAX_OUTPUT_TOKENS) || 1500,
+};
+
 export const webauthn = {
 	rp_name: process.env.RP_NAME || 'Subgrid',
 	rp_id: process.env.RP_ID || 'localhost',

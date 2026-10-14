@@ -3,3 +3,5 @@ dist/
 .env
 *.log
 *.md
+# local database dumps
+backups/
