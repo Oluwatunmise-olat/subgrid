@@ -3,3 +3,5 @@ export * from './action-logs.repository';
 export * from './projects.repository';
 export * from './webauthn-credentials.repository';
 export * from './oauth-connections.repository';
+export * from './workflows.repository';
+export * from './workflow-steps.repository';

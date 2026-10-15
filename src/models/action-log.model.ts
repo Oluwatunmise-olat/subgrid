@@ -1,8 +1,7 @@
 import { ModelObject } from 'objection';
 
 import BaseModel from './base.model';
-
-export type ActionLogStatus = 'pending_approval' | 'approved' | 'rejected' | 'succeeded' | 'failed';
+import type { ActionLogStatus } from './types';
 
 export class ActionLog extends BaseModel {
 	static tableName = 'action_logs';
@@ -11,13 +10,14 @@ export class ActionLog extends BaseModel {
 		return ['input', 'output'];
 	}
 
-	mcp_server_id: string;
-	tool_name: string;
-	input: Record<string, any>;
-	output: Record<string, any> | null;
-	status: ActionLogStatus;
-	requires_approval: boolean;
-	error: string | null;
+	mcp_server_id!: string;
+	project_id!: string | null;
+	tool_name!: string;
+	input!: Record<string, any>;
+	output!: Record<string, any> | null;
+	status!: ActionLogStatus;
+	requires_approval!: boolean;
+	error!: string | null;
 }
 
 export type ActionLogType = ModelObject<ActionLog>;
