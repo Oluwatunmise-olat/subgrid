@@ -27,9 +27,9 @@ export class OrchestratorController {
 	};
 
 	public history = async (request: Request, response: Response) => {
-		const { server_id } = request.query as { server_id?: string };
+		const { server_id, project_id } = request.query as { server_id?: string; project_id?: string };
 
-		const data = await this.orchestratorService.history(server_id);
+		const data = await this.orchestratorService.history(server_id, project_id);
 
 		return genericResponse({ response, data });
 	};
