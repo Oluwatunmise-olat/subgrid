@@ -19,7 +19,7 @@ import {
   EDITABLE_STATUSES,
   EXECUTABLE_STATUSES,
   TERMINAL_STATUSES,
-} from "./workflow-runtime.constants";
+} from "@/common/constants/workflow-runtime.constants";
 import {
   referencedStepIndexes,
   resolveStepInput,

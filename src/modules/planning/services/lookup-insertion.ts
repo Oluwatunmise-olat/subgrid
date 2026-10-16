@@ -1,6 +1,6 @@
 import { referencedStepIndexes } from "@/modules/workflows/services/step-input";
 import type { LookupStep, LookupTool } from "../types/planning.types";
-import { FILTER_PARAMS, ID_FIELD, ID_INPUT, READ_TOOL } from "./lookup-insertion.constants";
+import { FILTER_PARAMS, ID_FIELD, ID_INPUT, READ_TOOL } from "@/common/constants/lookup-insertion.constants";
 
 const hostnameIn = (message: string): string | null =>
 	(message.match(/\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\b/i) || [])[0] || null;

@@ -14,7 +14,7 @@ import {
 	PRESET_KEYWORDS,
 	RANKING_SYSTEM_PROMPT,
 	RANKING_TIMEOUT_MS,
-} from './suggestion.constants';
+} from '@/common/constants/suggestion.constants';
 import { rankingSchema } from './dto/validation.dto';
 
 @injectable()
