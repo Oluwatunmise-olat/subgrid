@@ -1,5 +1,7 @@
 import { createHash, createHmac } from 'node:crypto';
 
+import { DEFAULT_SERVICE } from './constants';
+
 export type SigV4Input = {
 	method: string;
 	url: URL;
@@ -11,8 +13,6 @@ export type SigV4Input = {
 	extraHeaders?: Record<string, string>;
 	timestamp?: Date;
 };
-
-const DEFAULT_SERVICE = 's3';
 
 const hex = (data: string | Buffer) => createHash('sha256').update(data).digest('hex');
 

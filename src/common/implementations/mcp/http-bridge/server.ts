@@ -8,55 +8,8 @@ import {
 	ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
-type VerbParam = {
-	type?: 'string' | 'number' | 'boolean';
-	in?: 'path' | 'query' | 'body';
-	required?: boolean;
-	description?: string;
-	enum?: string[];
-	default?: string | number | boolean;
-};
-
-type Verb = {
-	name: string;
-	method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-	path: string;
-	description?: string;
-	params?: Record<string, VerbParam>;
-	bodyArray?: boolean;
-	body_template?: unknown;
-};
-
-type Auth =
-	| { header: string; value: string }
-	| { basic: { username: string; password: string } }
-	| {
-			oauth2: {
-				tokenUrl: string;
-				grantType: 'password' | 'client_credentials';
-				clientId: string;
-				clientSecret: string;
-				username?: string;
-				password?: string;
-				scope?: string;
-				tokenField?: string;
-			};
-	  };
-
-type Spec = {
-	name?: string;
-	base_url: string;
-	headers?: Record<string, string>;
-	unique_headers?: string[];
-	auth?: Auth;
-	verbs: Verb[];
-};
-
-const REQUEST_TIMEOUT_MS = 30_000;
-
-const SAFE_SEGMENT = /^[A-Za-z0-9._~-]+$/;
-
-const placeholderPattern = /(?<!\$)\{([A-Za-z0-9_]+)\}/g;
+import { REQUEST_TIMEOUT_MS, SAFE_SEGMENT, placeholderPattern } from './constants';
+import { Auth, Spec, Verb } from './types';
 
 const interpolateEnv = (value: string): string =>
 	value.replace(/\$\{([A-Za-z0-9_]+)\}/g, (_, key) => process.env[key] ?? '');
