@@ -7,11 +7,6 @@ import { OAuthConnectionType } from '@/models/oauth-connection.model';
 import { encryptJson, decryptJson } from '@/common/utils/encrypt-decrypt';
 import { app } from '@/conf/env';
 
-/**
- * Bridges the MCP SDK's generic OAuthClientProvider interface to Subgrid's
- * encrypted storage. One instance per connection attempt - state lives in the
- * `oauth_connections` row, not on this object, so it's safe to throw away.
- */
 export class SubgridOAuthProvider implements OAuthClientProvider {
 	public capturedAuthorizeUrl: string | null = null;
 
@@ -89,8 +84,6 @@ export class SubgridOAuthProvider implements OAuthClientProvider {
 	}
 
 	public redirectToAuthorization(authorizationUrl: URL): void {
-		// We're on a server, not a browser - capture the URL for the controller to hand back
-		// to the frontend as JSON instead of actually redirecting anything here.
 		this.capturedAuthorizeUrl = authorizationUrl.toString();
 	}
 
