@@ -13,18 +13,6 @@ export class McpOAuthService {
 		private readonly oauthConnectionsRepository: OAuthConnectionsRepository,
 	) {}
 
-	private async getServerOrThrow(id: string): Promise<McpServerType> {
-		const server = (await this.mcpServersRepository.getById(id)) as unknown as McpServerType | undefined;
-
-		if (!server) throw new NotFoundError('Server not found');
-		if (server.transport !== 'sse' && server.transport !== 'http') {
-			throw new BadRequestError('OAuth only applies to sse/http transport servers');
-		}
-		if (!server.url) throw new BadRequestError('Server has no url configured');
-
-		return server;
-	}
-
 	public async initiate(serverId: string) {
 		const server = await this.getServerOrThrow(serverId);
 		const provider = new SubgridOAuthProvider(serverId, this.oauthConnectionsRepository);
@@ -84,5 +72,17 @@ export class McpOAuthService {
 		await provider.disconnect();
 
 		return { status: true, message: 'Disconnected' };
+	}
+
+	private async getServerOrThrow(id: string): Promise<McpServerType> {
+		const server = (await this.mcpServersRepository.getById(id)) as unknown as McpServerType | undefined;
+
+		if (!server) throw new NotFoundError('Server not found');
+		if (server.transport !== 'sse' && server.transport !== 'http') {
+			throw new BadRequestError('OAuth only applies to sse/http transport servers');
+		}
+		if (!server.url) throw new BadRequestError('Server has no url configured');
+
+		return server;
 	}
 }

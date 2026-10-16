@@ -84,12 +84,6 @@ export class WorkflowRuntimeService {
     return { ...workflow, steps };
   }
 
-  private async getWorkflowOrThrow(id: string): Promise<WorkflowType> {
-    const workflow = await this.workflowsRepository.getById(id);
-    if (!workflow) throw new NotFoundError("Workflow not found");
-    return workflow as unknown as WorkflowType;
-  }
-
   public async updateWorkflow(id: string, patch: UpdateWorkflowDto) {
     const workflow = await this.getWorkflowOrThrow(id);
     if (!EDITABLE_STATUSES.includes(workflow.status))
@@ -236,6 +230,12 @@ export class WorkflowRuntimeService {
     const workflow = await this.getWorkflowOrThrow(workflowId);
     await this.runSteps(workflowId, workflow.execution_mode);
     return this.getWorkflow(workflowId);
+  }
+
+  private async getWorkflowOrThrow(id: string): Promise<WorkflowType> {
+    const workflow = await this.workflowsRepository.getById(id);
+    if (!workflow) throw new NotFoundError("Workflow not found");
+    return workflow as unknown as WorkflowType;
   }
 
   private async resolveStepReferences(step: WorkflowStepType) {

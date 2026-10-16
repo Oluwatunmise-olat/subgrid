@@ -29,41 +29,6 @@ export class OrchestratorService {
     private readonly catalogService: CatalogService,
   ) {}
 
-  private resultText(result: unknown): string {
-    const content = (result as { content?: unknown })?.content;
-
-    if (Array.isArray(content)) {
-      return content
-        .map((part) => (typeof (part as { text?: unknown })?.text === "string" ? (part as { text: string }).text : ""))
-        .filter(Boolean)
-        .join("\n");
-    }
-
-    return typeof result === "string" ? result : JSON.stringify(result ?? "");
-  }
-
-  private getToolErrorMessage(
-    server: McpServerType,
-    toolName: string,
-    error: unknown,
-  ): string {
-    const rawMessage = error instanceof Error ? error.message : String(error);
-
-    if (
-      server.provider === "s3-r2" &&
-      toolName === "s3_list_buckets" &&
-      /access\s*denied|accessdenied|\b403\b/i.test(rawMessage)
-    ) {
-      return [
-        "R2 denied account-wide bucket listing.",
-        "Use an R2 API token with Admin Read only (or Admin Read & Write) permission applied to all buckets.",
-        "Object Read & Write tokens scoped to one bucket cannot list buckets.",
-      ].join(" ");
-    }
-
-    return `Tool call failed: ${rawMessage}`;
-  }
-
   public async listTools(serverId: string) {
     const server = (await this.mcpServersRepository.getById(
       serverId,
@@ -223,5 +188,40 @@ export class OrchestratorService {
     const logs = await this.actionLogsRepository.findMany(filter);
 
     return { status: true, message: "Action log retrieved", data: { logs } };
+  }
+
+  private resultText(result: unknown): string {
+    const content = (result as { content?: unknown })?.content;
+
+    if (Array.isArray(content)) {
+      return content
+        .map((part) => (typeof (part as { text?: unknown })?.text === "string" ? (part as { text: string }).text : ""))
+        .filter(Boolean)
+        .join("\n");
+    }
+
+    return typeof result === "string" ? result : JSON.stringify(result ?? "");
+  }
+
+  private getToolErrorMessage(
+    server: McpServerType,
+    toolName: string,
+    error: unknown,
+  ): string {
+    const rawMessage = error instanceof Error ? error.message : String(error);
+
+    if (
+      server.provider === "s3-r2" &&
+      toolName === "s3_list_buckets" &&
+      /access\s*denied|accessdenied|\b403\b/i.test(rawMessage)
+    ) {
+      return [
+        "R2 denied account-wide bucket listing.",
+        "Use an R2 API token with Admin Read only (or Admin Read & Write) permission applied to all buckets.",
+        "Object Read & Write tokens scoped to one bucket cannot list buckets.",
+      ].join(" ");
+    }
+
+    return `Tool call failed: ${rawMessage}`;
   }
 }

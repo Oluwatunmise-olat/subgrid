@@ -6,13 +6,6 @@ import { webauthn } from '@/conf/env';
 
 @injectable()
 export class SessionService {
-	private requireApprovalSecret() {
-		if (!webauthn.approval_secret) {
-			throw new Error('APPROVAL_SECRET must be set to a random string. Generate one with `openssl rand -hex 32`.');
-		}
-		return webauthn.approval_secret;
-	}
-
 	public issue(response: Response) {
 		const token = jwt.sign({ typ: 'session' }, this.requireApprovalSecret(), { expiresIn: webauthn.session_ttl_seconds });
 
@@ -38,5 +31,12 @@ export class SessionService {
 		} catch {
 			return false;
 		}
+	}
+
+	private requireApprovalSecret() {
+		if (!webauthn.approval_secret) {
+			throw new Error('APPROVAL_SECRET must be set to a random string. Generate one with `openssl rand -hex 32`.');
+		}
+		return webauthn.approval_secret;
 	}
 }

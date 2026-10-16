@@ -25,30 +25,6 @@ export class CatalogService {
 		};
 	}
 
-	private publicIntegration(entry: CatalogIntegration) {
-		const { command, baseArgs, url, ...rest } = entry;
-
-		return rest;
-	}
-
-	private publicPreset(preset: BridgePreset) {
-		return {
-			id: preset.id,
-			kind: preset.kind,
-			name: preset.name,
-			category: preset.category,
-			provider: preset.provider,
-			description: preset.description,
-			docs: preset.docs,
-			note: preset.note,
-			limits: preset.limits,
-			fields: preset.fields,
-			optionalFields: preset.optionalFields || [],
-			verbNames: preset.verbs.map((verb) => verb.name),
-			authority: displayAuthority(preset),
-		};
-	}
-
 	public resolveIntegration(id: string): ResolvedComponent {
 		const entry = INTEGRATIONS.find((item) => item.id === id);
 
@@ -121,5 +97,29 @@ export class CatalogService {
 				return null;
 			}
 		}
+	}
+
+	private publicIntegration(entry: CatalogIntegration) {
+		const { command, baseArgs, url, ...rest } = entry;
+
+		return rest;
+	}
+
+	private publicPreset(preset: BridgePreset) {
+		return {
+			id: preset.id,
+			kind: preset.kind,
+			name: preset.name,
+			category: preset.category,
+			provider: preset.provider,
+			description: preset.description,
+			docs: preset.docs,
+			note: preset.note,
+			limits: preset.limits,
+			fields: preset.fields,
+			optionalFields: preset.optionalFields || [],
+			verbNames: preset.verbs.map((verb) => verb.name),
+			authority: displayAuthority(preset),
+		};
 	}
 }

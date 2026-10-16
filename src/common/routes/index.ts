@@ -3,8 +3,12 @@ import { Request, Response } from "express";
 import { mcpRegistryRoutes } from "@/modules/mcp-registry/mcp-registry.routes";
 import { mcpOAuthRoutes } from "@/modules/mcp-registry/oauth.routes";
 import { orchestratorRoutes } from "@/modules/orchestrator/orchestrator.routes";
+import { planningRoutes } from "@/modules/planning/planning.routes";
+import { capabilityRegistryRoutes } from "@/modules/planning/capability-registry.routes";
 import { projectsRoutes } from "@/modules/projects/projects.routes";
+import { workflowRoutes } from "@/modules/workflows/workflow.routes";
 import { securityRoutes } from "@/modules/security/security.routes";
+import { catalogRoutes } from "@/modules/catalog/catalog.routes";
 import requireSession from "../middlewares/session.middleware";
 import { RoutePrefix } from "../enums/generic";
 import { AppServer } from "../types/http";
@@ -23,9 +27,16 @@ export default (server: AppServer): void => {
 
   server.use(`${RoutePrefix.V1}/projects`, requireSession);
   server.use(`${RoutePrefix.V1}/mcp-servers`, requireSession);
+  server.use(`${RoutePrefix.V1}/workflows`, requireSession);
+  server.use(`${RoutePrefix.V1}/catalog`, requireSession);
+
+  catalogRoutes(server, `${RoutePrefix.V1}/catalog`);
 
   projectsRoutes(server, `${RoutePrefix.V1}/projects`);
+  planningRoutes(server, `${RoutePrefix.V1}/projects`);
+  capabilityRegistryRoutes(server, `${RoutePrefix.V1}/projects`);
   mcpRegistryRoutes(server, `${RoutePrefix.V1}/mcp-servers`);
   mcpOAuthRoutes(server, `${RoutePrefix.V1}/mcp-servers`);
   orchestratorRoutes(server, `${RoutePrefix.V1}/mcp-servers`);
+  workflowRoutes(server, `${RoutePrefix.V1}/workflows`);
 };

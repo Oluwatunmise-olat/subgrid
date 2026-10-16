@@ -13,16 +13,6 @@ import { ProjectCapabilitySnapshot } from "../types/planning.types";
 export class CapabilityRegistryService {
   constructor(private readonly mcpServersRepository: McpServersRepository) {}
 
-  private async loadServers(projectId: string) {
-    const servers = (await this.mcpServersRepository.findMany({
-      project_id: projectId,
-    } as Partial<McpServerType>)) as unknown as McpServerType[];
-
-    if (!servers) throw new NotFoundError("Project not found");
-
-    return servers;
-  }
-
   public async getSnapshot(
     projectId: string,
   ): Promise<ProjectCapabilitySnapshot> {
@@ -64,5 +54,15 @@ export class CapabilityRegistryService {
     const servers = await this.loadServers(projectId);
     servers.forEach((server) => invalidateToolManifest(server.id));
     return this.getSnapshot(projectId);
+  }
+
+  private async loadServers(projectId: string) {
+    const servers = (await this.mcpServersRepository.findMany({
+      project_id: projectId,
+    } as Partial<McpServerType>)) as unknown as McpServerType[];
+
+    if (!servers) throw new NotFoundError("Project not found");
+
+    return servers;
   }
 }

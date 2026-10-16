@@ -18,8 +18,8 @@ process
 
 application
 	.listen(app.port)
-	.then(() => logger.info(`🐧 Server is listening on port ${app.port}`))
+	.then(() => logger.info(`Server is listening on port ${app.port}`))
 	.catch((error) => {
-		logger.error({ err: error }, '🐧 An error occurred while trying to start server');
+		logger.error({ err: error }, 'An error occurred while trying to start server');
 		process.exit(1);
 	});

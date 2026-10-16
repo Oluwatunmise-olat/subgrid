@@ -12,36 +12,14 @@ import { WebauthnCredentialsRepository } from '@/repositories';
 import { BadRequestError, ForbiddenError, NotFoundError } from '@/common/utils/errors/app.error';
 import { webauthn } from '@/conf/env';
 import { WebauthnCredentialType } from '@/models/webauthn-credential.model';
-
-interface PendingChallenge {
-	challenge: string;
-	type: 'registration' | 'approval';
-	action?: string;
-	expiresAt: number;
-}
-
-const CHALLENGE_TTL_MS = 2 * 60 * 1000;
+import { PendingChallenge } from '../types/security.types';
+import { CHALLENGE_TTL_MS } from '@/common/constants/passkey.constants';
 
 @injectable()
 export class PasskeyService {
-	// Ephemeral - a WebAuthn ceremony completes in seconds, no need to survive a restart.
 	private challenges = new Map<string, PendingChallenge>();
 
 	constructor(private readonly webauthnCredentialsRepository: WebauthnCredentialsRepository) {}
-
-	private requireApprovalSecret() {
-		if (!webauthn.approval_secret) {
-			throw new Error('APPROVAL_SECRET must be set to a random string. Generate one with `openssl rand -hex 32`.');
-		}
-		return webauthn.approval_secret;
-	}
-
-	private sweepExpiredChallenges() {
-		const now = Date.now();
-		for (const [id, entry] of this.challenges) {
-			if (entry.expiresAt < now) this.challenges.delete(id);
-		}
-	}
 
 	public async hasCredentials() {
 		const credentials = await this.webauthnCredentialsRepository.findMany({});
@@ -186,6 +164,20 @@ export class PasskeyService {
 		} catch (err) {
 			if (err instanceof ForbiddenError) throw err;
 			throw new ForbiddenError('Passkey approval is invalid or expired. Approve again.');
+		}
+	}
+
+	private requireApprovalSecret() {
+		if (!webauthn.approval_secret) {
+			throw new Error('APPROVAL_SECRET must be set to a random string. Generate one with `openssl rand -hex 32`.');
+		}
+		return webauthn.approval_secret;
+	}
+
+	private sweepExpiredChallenges() {
+		const now = Date.now();
+		for (const [id, entry] of this.challenges) {
+			if (entry.expiresAt < now) this.challenges.delete(id);
 		}
 	}
 }

@@ -43,3 +43,9 @@ export class UnAuthorizedError extends AppError {
 		super(message, StatusCodes.UNAUTHORIZED, resData, methodName);
 	}
 }
+
+export class LlmTimeoutError extends AppError {
+	constructor(message = 'The planner took too long to respond') {
+		super(message, StatusCodes.REQUEST_TIMEOUT);
+	}
+}

@@ -17,9 +17,30 @@ export class ProjectsService {
 
 		if (existing) throw new BadRequestError(`A project with slug "${payload.slug}" already exists`);
 
-		const created = await this.projectsRepository.create(payload);
+		const existingDeleted = await this.projectsRepository.getBySlugIncludingDeleted(payload.slug);
 
-		return { status: true, message: 'Project created', data: { project: created } };
+		if (existingDeleted && (existingDeleted as unknown as ProjectType).deleted_at) {
+			await this.projectsRepository.update(
+				{ id: (existingDeleted as unknown as ProjectType).id } as Partial<ProjectType>,
+				{ ...payload, deleted_at: null } as Partial<ProjectType>,
+			);
+
+			const restored = await this.projectsRepository.getById((existingDeleted as unknown as ProjectType).id);
+
+			return { status: true, message: 'Project restored', data: { project: restored } };
+		}
+
+		try {
+			const created = await this.projectsRepository.create(payload);
+
+			return { status: true, message: 'Project created', data: { project: created } };
+		} catch (err) {
+			if ((err as { code?: string })?.code === '23505') {
+				throw new BadRequestError(`A project with slug "${payload.slug}" already exists`);
+			}
+
+			throw err;
+		}
 	}
 
 	public async list() {
