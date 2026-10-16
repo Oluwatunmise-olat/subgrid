@@ -24,5 +24,21 @@ services:
     depends_on:
       - postgres
 
+  app:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      NODE_ENV: production
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh -c "bun run migrate && bun src/index.ts"
+
 volumes:
   subgrid_postgres_data:
