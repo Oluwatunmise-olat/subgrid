@@ -4,6 +4,8 @@ import cors from "cors";
 import express from "express";
 import "express-async-errors";
 import http from "http";
+import { existsSync } from "fs";
+import path from "path";
 import { singleton } from "tsyringe";
 
 import { bootstrap } from "./bootstrap";
@@ -19,6 +21,9 @@ import {
   AppServer,
 } from "./common/types/http";
 import { app as appConf } from "./conf/env";
+
+const UI_DIR = path.join(__dirname, "../public");
+const UI_INDEX_FILE = path.join(UI_DIR, "index.html");
 
 @singleton()
 export default class Application {
@@ -63,7 +68,17 @@ export default class Application {
       },
     );
 
+    const uiBundled = existsSync(UI_INDEX_FILE);
+
+    if (uiBundled) this.app.use(express.static(UI_DIR));
+
     routes(this.app);
+
+    if (uiBundled) {
+      this.app.get(/^(?!\/api\/).*/, (_req: AppRequest, res: AppResponse) => {
+        res.sendFile(UI_INDEX_FILE);
+      });
+    }
 
     this.app.use(routeNotFoundHandler);
 
