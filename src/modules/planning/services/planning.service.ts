@@ -29,7 +29,6 @@ import { stripUnavailableReferences } from "@/common/utils/step-input";
 import { insertMissingLookups } from "@/common/utils/lookup-insertion";
 import { budgetTools } from "@/common/utils/tool-budget";
 import {
-  OPERATIONAL_INTENT,
   actionOverlap,
   capabilityLabel,
   capabilityScore,
@@ -41,6 +40,7 @@ import {
   resourceOverlap,
   resourceTokens,
 } from "@/common/utils/tool-ranking";
+import { OPERATIONAL_INTENT } from "@/common/constants/tool-vocabulary";
 
 @injectable()
 export class PlanningService {

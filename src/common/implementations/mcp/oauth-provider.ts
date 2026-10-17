@@ -133,7 +133,7 @@ export class SubgridOAuthProvider implements OAuthClientProvider {
     this.capturedAuthorizeUrl = authorizationUrl.toString();
   }
 
-  public async saveCodeVerifier(codeVerifier: string): Promise<void> {
+  public async saveCodeVerifier(codeVerifier: string) {
     const row = await this.getRow();
 
     await this.oauthConnectionsRepository.update(
@@ -154,7 +154,7 @@ export class SubgridOAuthProvider implements OAuthClientProvider {
     return row.code_verifier;
   }
 
-  public async saveDiscoveryState(state: OAuthDiscoveryState): Promise<void> {
+  public async saveDiscoveryState(state: OAuthDiscoveryState) {
     const row = await this.getRow();
 
     await this.oauthConnectionsRepository.update(
@@ -172,7 +172,7 @@ export class SubgridOAuthProvider implements OAuthClientProvider {
     return (row.discovery_state as unknown as OAuthDiscoveryState) || undefined;
   }
 
-  public async clearTransientState(): Promise<void> {
+  public async clearTransientState() {
     const row = await this.getRow();
 
     await this.oauthConnectionsRepository.update(
@@ -196,7 +196,7 @@ export class SubgridOAuthProvider implements OAuthClientProvider {
     return Boolean(tokens?.access_token);
   }
 
-  public async disconnect(): Promise<void> {
+  public async disconnect() {
     const row = await this.getRow();
 
     await this.oauthConnectionsRepository.update(

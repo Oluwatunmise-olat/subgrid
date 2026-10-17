@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 
 import { app } from '@/conf/env';
+import { EncryptedPayload } from '@/common/types/encryption';
 
 const ALGORITHM = 'aes-256-gcm';
 
@@ -11,12 +12,6 @@ const getKey = (): Buffer => {
 
 	return Buffer.from(app.encryption_key, 'hex');
 };
-
-export interface EncryptedPayload {
-	cipher_text: string;
-	nonce: string;
-	tag: string;
-}
 
 export const encryptJson = (value: unknown): EncryptedPayload => {
 	const nonce = crypto.randomBytes(12);

@@ -21,26 +21,39 @@ export class OpenAIllmProcessor {
     return Boolean(embedders.openai.apiKey || embedders.openrouter.apiKey);
   }
 
+  private buildClientConfig(
+    apiKey: string,
+    useOpenRouter: boolean,
+  ): ConstructorParameters<typeof ChatOpenAI>[0] {
+    const config: ConstructorParameters<typeof ChatOpenAI>[0] = {
+      apiKey,
+      model: useOpenRouter
+        ? embedders.openrouter.model
+        : embedders.openai.chat_model,
+      maxRetries: 2,
+      temperature: 0.1,
+      maxTokens: llmConfig.max_output_tokens,
+    };
+
+    if (useOpenRouter) {
+      config.configuration = { baseURL: embedders.openrouter.baseUrl };
+    }
+
+    return config;
+  }
+
   private getLlm(override?: LlmOverride): ChatOpenAI {
     if (override?.apiKey) {
       const useOpenRouter = override.provider === "openrouter";
 
-      return new ChatOpenAI({
-        apiKey: override.apiKey,
-        model: useOpenRouter
-          ? embedders.openrouter.model
-          : embedders.openai.chat_model,
-        maxRetries: 2,
-        temperature: 0.1,
-        maxTokens: llmConfig.max_output_tokens,
-        ...(useOpenRouter
-          ? { configuration: { baseURL: embedders.openrouter.baseUrl } }
-          : {}),
-      });
+      return new ChatOpenAI(
+        this.buildClientConfig(override.apiKey, useOpenRouter),
+      );
     }
 
     const useOpenRouter =
       !embedders.openai.apiKey && Boolean(embedders.openrouter.apiKey);
+
     const apiKey = useOpenRouter
       ? embedders.openrouter.apiKey
       : embedders.openai.apiKey;
@@ -52,18 +65,9 @@ export class OpenAIllmProcessor {
     }
 
     if (!this.llmInstance) {
-      this.llmInstance = new ChatOpenAI({
-        apiKey,
-        model: useOpenRouter
-          ? embedders.openrouter.model
-          : embedders.openai.chat_model,
-        maxRetries: 2,
-        temperature: 0.1,
-        maxTokens: llmConfig.max_output_tokens,
-        ...(useOpenRouter
-          ? { configuration: { baseURL: embedders.openrouter.baseUrl } }
-          : {}),
-      });
+      this.llmInstance = new ChatOpenAI(
+        this.buildClientConfig(apiKey, useOpenRouter),
+      );
     }
 
     return this.llmInstance;
@@ -77,6 +81,7 @@ export class OpenAIllmProcessor {
     override?: LlmOverride,
   ): Promise<T> {
     const llm = this.getLlm(override);
+
     const signal = AbortSignal.timeout(timeoutMs || llmConfig.timeout_ms);
 
     try {
@@ -103,17 +108,16 @@ export class OpenAIllmProcessor {
     override?: LlmOverride,
   ): Promise<LlmPlanResult> {
     const llm = this.getLlm(override);
+
     const signal = AbortSignal.timeout(llmConfig.timeout_ms);
 
-    const boundLlm = tools.length
-      ? llm.bindTools(
-          tools.map((tool) => ({
-            name: tool.name,
-            description: tool.description,
-            schema: tool.schema,
-          })),
-        )
-      : llm;
+    const toolSpecs = tools.map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      schema: tool.schema,
+    }));
+
+    const boundLlm = tools.length ? llm.bindTools(toolSpecs) : llm;
 
     const messages = [
       new SystemMessage(systemPrompt),
@@ -140,6 +144,7 @@ export class OpenAIllmProcessor {
       if (error.name === "TimeoutError" || error.name === "AbortError") {
         throw new LlmTimeoutError();
       }
+
       throw error;
     }
   }

@@ -15,14 +15,11 @@ import type { McpServerSecrets } from "@/models/types";
 import { RegisterServerDto, UpdateServerDto } from "../dto/validation.dto";
 import { connectToMcpServer } from "@/common/implementations/mcp/client";
 import { DATETIME_FORMATS } from "@/common/enums/generic";
-import {
-  decryptJson,
-  encryptJson,
-  EncryptedPayload,
-} from "@/common/utils/encrypt-decrypt";
+import { decryptJson, encryptJson } from "@/common/utils/encrypt-decrypt";
 import { PasskeyService } from "@/modules/security/services/passkey.service";
 import { CatalogService } from "@/modules/catalog/services/catalog.service";
 import { ResolvedComponent } from "@/common/types/catalog";
+import { EncryptedPayload } from "@/common/types/encryption";
 
 const SECRET_APPROVAL_ACTION = "store_server_secrets";
 

@@ -1,126 +1,75 @@
-import { ToolEntry } from "@/common/types/planning";
+import { RequestedCapability, ToolEntry } from "@/common/types/planning";
 import {
-  inferRequestCapability,
   isConfidentOperation,
   isReadOnlyOperation,
   writeOperationFamily,
 } from "./tool-capability";
 import { RequestEntities } from "@/common/types/entities";
-import { tokenize } from "@/common/utils/tokenize";
+import { singularize, tokenize } from "@/common/utils/tokenize";
+import {
+  DOCUMENTATION_INTENT,
+  DOCUMENTATION_TOOLS,
+  ENTITY_ARG_ALIASES,
+  READ_OPERATIONS,
+  ROUTING_STOPWORDS,
+} from "@/common/constants/tool-vocabulary";
 
-export const READ_ONLY_ACTIONS = [
-  "list",
-  "get",
-  "read",
-  "describe",
-  "search",
-  "fetch",
-  "check",
-  "verify",
-  "find",
-  "status",
-  "inspect",
-];
-const ROUTING_STOPWORDS = new Set([
-  "a",
-  "an",
-  "and",
-  "do",
-  "for",
-  "i",
-  "me",
-  "my",
-  "of",
-  "please",
-  "the",
-  "to",
-  "with",
-  "want",
-  "can",
-  "you",
-  ...READ_ONLY_ACTIONS,
-]);
-const DOCUMENTATION_TOOLS = new Set([
-  "docs",
-  "documentation",
-  "search_docs",
-  "find_docs",
-  "web_search",
-]);
-const DOCUMENTATION_INTENT = [
-  "docs",
-  "documentation",
-  "document",
-  "guide",
-  "reference",
-  "explain",
-  "research",
-  "how does",
-  "how do",
-];
-export const OPERATIONAL_INTENT = [
-  "list",
-  "show",
-  "get",
-  "create",
-  "add",
-  "update",
-  "configure",
-  "connect",
-  "delete",
-  "remove",
-  "send",
-  "deploy",
-  "run",
-];
-
-const normalizeRoutingToken = (token: string) => {
-  if (token.length > 4 && token.endsWith("ies"))
-    return `${token.slice(0, -3)}y`;
-  if (token.length > 4 && token.endsWith("s")) return token.slice(0, -1);
-  return token;
-};
+const STOPWORDS = new Set([...ROUTING_STOPWORDS, ...READ_OPERATIONS]);
+const DOCUMENTATION_TOOL_NAMES = new Set(DOCUMENTATION_TOOLS);
 
 export const resourceTokens = (value: string) =>
   tokenize(value)
-    .map(normalizeRoutingToken)
-    .filter((token) => !ROUTING_STOPWORDS.has(token));
+    .map(singularize)
+    .filter((token) => !STOPWORDS.has(token));
 
 export const resourceOverlap = (
   message: string,
   tool: { name: string; description: string; serverName: string },
 ) => {
   const requested = new Set(resourceTokens(message));
+
   const exposed = new Set(
     resourceTokens(`${tool.name} ${tool.description} ${tool.serverName}`),
   );
+
   return [...requested].filter((token) => exposed.has(token));
 };
 
 export const actionOverlap = (message: string, toolName: string) => {
   const requestedActions = tokenize(message).filter((token) =>
-    READ_ONLY_ACTIONS.includes(token),
+    READ_OPERATIONS.includes(token),
   );
+
   const toolActions = tokenize(toolName).filter((token) =>
-    READ_ONLY_ACTIONS.includes(token),
+    READ_OPERATIONS.includes(token),
   );
+
   return requestedActions.filter((action) => toolActions.includes(action));
 };
 
 export const isDocumentationRequest = (message: string) => {
   const lowerMessage = message.toLowerCase();
 
-  return DOCUMENTATION_INTENT.find((term) => lowerMessage.includes(term)) !== undefined;
+  return (
+    DOCUMENTATION_INTENT.find((term) => lowerMessage.includes(term)) !==
+    undefined
+  );
 };
+
 export const isDocumentationTool = (toolName: string) =>
-  DOCUMENTATION_TOOLS.has(toolName.toLowerCase());
+  DOCUMENTATION_TOOL_NAMES.has(toolName.toLowerCase());
 
 export const capabilityLabel = (message: string, resources: string[]) => {
   const lower = message.toLowerCase();
-  if (lower.includes("r2") || lower.includes("bucket"))
+
+  if (lower.includes("r2") || lower.includes("bucket")) {
     return "R2 bucket operations";
-  if (lower.includes("dns") || lower.includes("record"))
+  }
+
+  if (lower.includes("dns") || lower.includes("record")) {
     return "DNS operations";
+  }
+
   return resources.slice(0, 3).join(", ");
 };
 
@@ -129,31 +78,41 @@ export const relevanceScore = (
   tool: { name: string; description: string; serverName: string },
 ) => {
   const requestTokens = new Set(tokenize(message));
-  const haystack = tokenize(
-    `${tool.name} ${tool.description} ${tool.serverName}`,
-  );
-  return [...requestTokens].reduce((score, token) => {
-    if (token.length < 3) return score;
-    const normalized = normalizeRoutingToken(token);
-    return (
-      score +
-      (haystack.includes(token) ||
-      haystack.map(normalizeRoutingToken).includes(normalized)
-        ? ROUTING_STOPWORDS.has(normalized)
-          ? 1
-          : 6
-        : 0)
-    );
-  }, 0);
+  const exposedWords = tokenize(`${tool.name} ${tool.description} ${tool.serverName}`);
+  const singularizedExposedWords = exposedWords.map(singularize);
+
+  let score = 0;
+
+  for (const token of requestTokens) {
+    if (token.length < 3) continue;
+
+    const singularizedToken = singularize(token);
+    const isExposed =
+      exposedWords.includes(token) ||
+      singularizedExposedWords.includes(singularizedToken);
+
+    if (!isExposed) continue;
+
+    score += STOPWORDS.has(singularizedToken) ? 1 : 6;
+  }
+
+  return score;
 };
 
-const ENTITY_ARG_ALIASES: Record<keyof RequestEntities, string[]> = {
-  bucket: ["bucket", "Bucket", "bucket_name", "BucketName"],
-  domain: ["domain", "Domain", "domain_name"],
-  zone: ["zone", "Zone", "zone_id", "ZoneId", "zone_name"],
-  recipient: ["to", "recipient", "email", "To", "Recipient"],
-  project: ["project", "Project", "project_name", "app", "App"],
-  record: ["record", "Record", "name", "Name", "record_name"],
+const findEntityValueForField = (
+  field: string,
+  entities: RequestEntities,
+): string | undefined => {
+  for (const [entityKey, aliases] of Object.entries(ENTITY_ARG_ALIASES) as [
+    keyof RequestEntities,
+    string[],
+  ][]) {
+    if (aliases.includes(field) && entities[entityKey]) {
+      return entities[entityKey];
+    }
+  }
+
+  return undefined;
 };
 
 export const resolveArgsFromEntities = (
@@ -163,22 +122,18 @@ export const resolveArgsFromEntities = (
   const required: string[] = Array.isArray(entry.schema?.required)
     ? entry.schema.required
     : [];
+
   const args: Record<string, any> = {};
   let missingField: string | null = null;
 
   for (const field of required) {
-    let value: string | undefined;
-    for (const [entityKey, aliases] of Object.entries(ENTITY_ARG_ALIASES) as [
-      keyof RequestEntities,
-      string[],
-    ][]) {
-      if (aliases.includes(field) && entities[entityKey]) {
-        value = entities[entityKey];
-        break;
-      }
+    const value = findEntityValueForField(field, entities);
+
+    if (value) {
+      args[field] = value;
+    } else if (!missingField) {
+      missingField = field;
     }
-    if (value) args[field] = value;
-    else if (!missingField) missingField = field;
   }
 
   return { args, satisfied: !missingField, missingField };
@@ -188,28 +143,33 @@ export const isFastPathCandidate = (
   message: string,
   tool: { entry: ToolEntry; score: number },
   entities: RequestEntities,
-) => {
-  const action = tokenize(tool.entry.toolName).find((token) =>
-    READ_ONLY_ACTIONS.includes(token),
-  );
+): boolean => {
+  if (tool.score < 6) return false;
 
-  return (
-    tool.score >= 6 &&
+  const hasReadOnlyAction =
+    tokenize(tool.entry.toolName).find((token) => READ_OPERATIONS.includes(token)) !==
+    undefined;
+
+  if (!hasReadOnlyAction) return false;
+
+  const overlapsRequestedResource =
     resourceOverlap(message, {
       name: tool.entry.toolName,
       description: tool.entry.description,
       serverName: tool.entry.server.name,
-    }).length > 0 &&
-    READ_ONLY_ACTIONS.includes(action!) &&
-    resolveArgsFromEntities(tool.entry, entities).satisfied
-  );
+    }).length > 0;
+
+  if (!overlapsRequestedResource) return false;
+
+  return resolveArgsFromEntities(tool.entry, entities).satisfied;
 };
 
 export const capabilityScore = (
-  request: ReturnType<typeof inferRequestCapability>,
+  request: RequestedCapability,
   tool: ToolEntry,
 ) => {
   const capability = tool.capability;
+
   if (
     request.target &&
     capability.target &&
@@ -226,6 +186,7 @@ export const capabilityScore = (
 
   const requestFamily = writeOperationFamily(request.operation);
   const capabilityFamily = writeOperationFamily(capability.operation);
+
   if (
     !capability.readOnly &&
     requestFamily &&

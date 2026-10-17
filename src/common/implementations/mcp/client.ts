@@ -39,6 +39,7 @@ const SAFE_ENV_KEYS = [
   "TERM",
   "PWD",
 ];
+
 const SAFE_ENV_PREFIXES = ["NODE_", "NPM_", "npm_", "XDG_", "LC_"];
 
 const safeProcessEnv = (): Record<string, string> => {
@@ -46,6 +47,7 @@ const safeProcessEnv = (): Record<string, string> => {
 
   for (const [key, value] of Object.entries(process.env)) {
     if (value === undefined) continue;
+
     if (
       SAFE_ENV_KEYS.includes(key) ||
       SAFE_ENV_PREFIXES.find((prefix) => key.startsWith(prefix)) !== undefined
@@ -53,6 +55,7 @@ const safeProcessEnv = (): Record<string, string> => {
       out[key] = value;
     }
   }
+
   return out;
 };
 

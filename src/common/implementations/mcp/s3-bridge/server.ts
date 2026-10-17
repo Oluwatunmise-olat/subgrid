@@ -6,27 +6,23 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 import { canonicalUri, signRequest } from "./sigv4";
-import { DEFAULT_REGION, REQUEST_TIMEOUT_MS, MAX_INLINE_BYTES } from "./constants";
-
-type S3Spec = {
-  name?: string;
-  endpoint: string;
-  region?: string;
-  accessKeyId: string;
-  secretAccessKey: string;
-};
-
-const interpolateEnv = (value: string): string =>
-  value.replace(/\$\{([A-Za-z0-9_]+)\}/g, (_, key) => process.env[key] ?? "");
+import {
+  DEFAULT_REGION,
+  REQUEST_TIMEOUT_MS,
+  MAX_INLINE_BYTES,
+} from "./constants";
+import { S3Spec, S3Result } from "@/common/types/s3-bridge";
+import { interpolateEnv } from "@/common/utils/interpolate-env";
 
 const readSpec = (): S3Spec => {
   const fromArgv = process.argv[2];
-  const raw =
-    fromArgv && fromArgv.trim().startsWith("{")
-      ? fromArgv
-      : process.env.SUBGRID_S3_SPEC;
-  if (!raw)
+  const argvLooksLikeJson =
+    Boolean(fromArgv) && fromArgv.trim().startsWith("{");
+  const raw = argvLooksLikeJson ? fromArgv : process.env.SUBGRID_S3_SPEC;
+
+  if (!raw) {
     throw new Error("No spec: pass it as an argument, or set SUBGRID_S3_SPEC");
+  }
 
   const parsed = JSON.parse(raw) as S3Spec;
 
@@ -59,26 +55,54 @@ const assertBucket = (bucket: unknown) => {
   return value;
 };
 
+const hasControlCharacters = (value: string): boolean => {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    if (code <= 0x1f || code === 0x7f) return true;
+  }
+  return false;
+};
+
 const assertKey = (key: unknown) => {
   const value = String(key ?? "");
+
   if (!value) throw new Error("A key is required");
-  if (/[\u0000-\u001f\u007f]/.test(value))
+
+  if (hasControlCharacters(value)) {
     throw new Error("Refusing key: control characters are not allowed");
-  if (value.startsWith("/"))
+  }
+
+  if (value.startsWith("/")) {
     throw new Error('Refusing key: must not start with "/"');
-  if (value.split("/").includes(".."))
+  }
+
+  if (value.split("/").includes("..")) {
     throw new Error('Refusing key: ".." segments are not allowed');
+  }
+
   return value;
 };
 
-type S3Result = {
-  ok: boolean;
-  status: number;
-  body: string;
-  contentType: string | null;
+const objectPath = (bucket: unknown, key: unknown) =>
+  `/${assertBucket(bucket)}/${assertKey(key)}`;
+
+const TEXTUAL_CONTENT_TYPE = /^(text\/|application\/(json|xml))/;
+
+const formatResponseBody = (
+  buffer: Buffer,
+  contentType: string | null,
+): string => {
+  const isTextual =
+    TEXTUAL_CONTENT_TYPE.test(contentType || "") || buffer.length === 0;
+
+  if (isTextual) return buffer.toString("utf8");
+
+  const base64Preview = buffer.subarray(0, MAX_INLINE_BYTES).toString("base64");
+
+  return `[binary ${buffer.length} bytes, base64]\n${base64Preview}`;
 };
 
-const request = async (
+const s3Request = async (
   method: string,
   path: string,
   query: Record<string, string | number | undefined>,
@@ -103,7 +127,7 @@ const request = async (
     method,
     url,
     payload,
-    region: spec.region,
+    region: spec.region!,
     accessKeyId: spec.accessKeyId,
     secretAccessKey: spec.secretAccessKey,
     extraHeaders,
@@ -112,9 +136,7 @@ const request = async (
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-  let result:
-    | { ok: boolean; status: number; body: string; contentType: string | null }
-    | undefined;
+  let result: S3Result | undefined;
   let fetchError: unknown;
 
   try {
@@ -131,18 +153,11 @@ const request = async (
 
     const contentTypeHeader = response.headers.get("content-type");
     const buffer = Buffer.from(await response.arrayBuffer());
-    const looksTextual = /^(text\/|application\/(json|xml))/.test(
-      contentTypeHeader || "",
-    );
-    const bodyText =
-      looksTextual || buffer.length === 0
-        ? buffer.toString("utf8")
-        : `[binary ${buffer.length} bytes, base64]\n${buffer.subarray(0, MAX_INLINE_BYTES).toString("base64")}`;
 
     result = {
       ok: response.ok,
       status: response.status,
-      body: bodyText,
+      body: formatResponseBody(buffer, contentTypeHeader),
       contentType: contentTypeHeader,
     };
   } catch (err) {
@@ -161,7 +176,7 @@ const tools = [
     name: "list_buckets",
     description: "List the buckets available to these credentials",
     inputSchema: { type: "object" as const, properties: {} },
-    run: async () => request("GET", "/", {}),
+    run: async () => s3Request("GET", "/", {}),
   },
   {
     name: "list_objects",
@@ -184,7 +199,7 @@ const tools = [
       required: ["bucket"],
     },
     run: async (args: any) =>
-      request("GET", `/${assertBucket(args.bucket)}`, {
+      s3Request("GET", `/${assertBucket(args.bucket)}`, {
         "list-type": 2,
         prefix: args.prefix,
         "max-keys": args.max_keys,
@@ -201,11 +216,7 @@ const tools = [
       required: ["bucket", "key"],
     },
     run: async (args: any) =>
-      request(
-        "HEAD",
-        `/${assertBucket(args.bucket)}/${assertKey(args.key)}`,
-        {},
-      ),
+      s3Request("HEAD", objectPath(args.bucket, args.key), {}),
   },
   {
     name: "get_object",
@@ -217,11 +228,7 @@ const tools = [
       required: ["bucket", "key"],
     },
     run: async (args: any) =>
-      request(
-        "GET",
-        `/${assertBucket(args.bucket)}/${assertKey(args.key)}`,
-        {},
-      ),
+      s3Request("GET", objectPath(args.bucket, args.key), {}),
   },
   {
     name: "put_object",
@@ -241,20 +248,24 @@ const tools = [
       },
       required: ["bucket", "key", "content"],
     },
-    run: async (args: any) =>
-      request(
+    run: async (args: any) => {
+      const isBase64 = args.body_encoding === "base64";
+      const body = Buffer.from(
+        String(args.content),
+        isBase64 ? "base64" : "utf8",
+      );
+      const defaultContentType = isBase64
+        ? "application/octet-stream"
+        : "text/plain; charset=utf-8";
+
+      return s3Request(
         "PUT",
-        `/${assertBucket(args.bucket)}/${assertKey(args.key)}`,
+        objectPath(args.bucket, args.key),
         {},
-        Buffer.from(
-          String(args.content),
-          args.body_encoding === "base64" ? "base64" : "utf8",
-        ),
-        args.content_type ||
-          (args.body_encoding === "base64"
-            ? "application/octet-stream"
-            : "text/plain; charset=utf-8"),
-      ),
+        body,
+        args.content_type || defaultContentType,
+      );
+    },
   },
   {
     name: "delete_object",
@@ -265,15 +276,11 @@ const tools = [
       required: ["bucket", "key"],
     },
     run: async (args: any) =>
-      request(
-        "DELETE",
-        `/${assertBucket(args.bucket)}/${assertKey(args.key)}`,
-        {},
-      ),
+      s3Request("DELETE", objectPath(args.bucket, args.key), {}),
   },
 ];
 
-const byName = new Map(tools.map((tool) => [tool.name, tool]));
+const toolsByName = new Map(tools.map((tool) => [tool.name, tool]));
 
 const server = new Server(
   {
@@ -291,20 +298,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   })),
 }));
 
-server.setRequestHandler(CallToolRequestSchema, async (request_) => {
-  const tool = byName.get(request_.params.name);
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  const tool = toolsByName.get(request.params.name);
 
   if (!tool) {
     return {
       isError: true,
       content: [
-        { type: "text", text: `Unknown tool "${request_.params.name}"` },
+        { type: "text", text: `Unknown tool "${request.params.name}"` },
       ],
     };
   }
 
   try {
-    const result = await tool.run((request_.params.arguments || {}) as any);
+    const result = await tool.run((request.params.arguments || {}) as any);
     const text = [
       `HTTP ${result.status}`,
       result.contentType ? `content-type: ${result.contentType}` : "",

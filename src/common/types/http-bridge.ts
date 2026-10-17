@@ -41,3 +41,10 @@ export type Spec = {
 	auth?: Auth;
 	verbs: Verb[];
 };
+
+export type BridgeResult = {
+	ok: boolean;
+	status: number;
+	url: string;
+	body: string;
+};

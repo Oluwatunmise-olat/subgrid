@@ -30,18 +30,20 @@ export const globalErrorHandler = (
       ? error.statusCode
       : StatusCodes.INTERNAL_SERVER_ERROR;
 
-  const message =
-    error instanceof AppError
-      ? error.message
-      : app.env !== "production"
-        ? `Server error: ${error.message}`
-        : "An unexpected error occurred. Please try again later or contact support";
+  let message: string;
+
+  if (error instanceof AppError) {
+    message = error.message;
+  } else if (app.env !== "production") {
+    message = `Server error: ${error.message}`;
+  } else {
+    message =
+      "An unexpected error occurred. Please try again later or contact support";
+  }
 
   logger.error(
-    `${LOG_PREFIX} Global error handler\n` +
-      `Message: ${error.message}\n` +
-      `Stack: ${error.stack}\n` +
-      `Request URL: ${response.req.url}`,
+    { err: error, url: response.req.url },
+    `${LOG_PREFIX} Global error handler`,
   );
 
   const errorData = error instanceof AppError ? error.resData : {};
