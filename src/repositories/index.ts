@@ -5,3 +5,5 @@ export * from './webauthn-credentials.repository';
 export * from './oauth-connections.repository';
 export * from './workflows.repository';
 export * from './workflow-steps.repository';
+export * from './llm-settings.repository';
+export * from './passkey-challenges.repository';

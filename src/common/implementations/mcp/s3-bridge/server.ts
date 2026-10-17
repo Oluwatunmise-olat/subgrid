@@ -112,6 +112,11 @@ const request = async (
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
+  let result:
+    | { ok: boolean; status: number; body: string; contentType: string | null }
+    | undefined;
+  let fetchError: unknown;
+
   try {
     const response = await fetch(url, {
       method,
@@ -134,15 +139,21 @@ const request = async (
         ? buffer.toString("utf8")
         : `[binary ${buffer.length} bytes, base64]\n${buffer.subarray(0, MAX_INLINE_BYTES).toString("base64")}`;
 
-    return {
+    result = {
       ok: response.ok,
       status: response.status,
       body: bodyText,
       contentType: contentTypeHeader,
     };
-  } finally {
-    clearTimeout(timer);
+  } catch (err) {
+    fetchError = err;
   }
+
+  clearTimeout(timer);
+
+  if (fetchError) throw fetchError;
+
+  return result!;
 };
 
 const tools = [

@@ -13,13 +13,13 @@ import { normalizeMcpResult } from "@/common/utils/mcp-result";
 import {
   getCachedToolManifest,
   getToolManifestMeta,
-} from "@/modules/planning/services/tool-manifest-cache";
+} from "@/common/utils/tool-manifest-cache";
 import {
   isToolAllowed,
   resolveRequiresApproval,
 } from "@/common/utils/tool-policy";
-import { CatalogService } from "@/modules/catalog/catalog.service";
-import { looksLikeError } from "./result-normalizer";
+import { CatalogService } from "@/modules/catalog/services/catalog.service";
+import { looksLikeError } from "@/common/utils/result-normalizer";
 
 @injectable()
 export class OrchestratorService {
@@ -30,13 +30,12 @@ export class OrchestratorService {
   ) {}
 
   public async listTools(serverId: string) {
-    const server = (await this.mcpServersRepository.getById(
-      serverId,
-    )) as unknown as McpServerType | undefined;
+    const server = (await this.mcpServersRepository.getById(serverId)) as any;
 
     if (!server) throw new NotFoundError("Server not found");
 
     const tools = await getCachedToolManifest(server);
+
     const meta = getToolManifestMeta(server.id);
 
     return {
@@ -59,9 +58,7 @@ export class OrchestratorService {
   }
 
   public async callTool(serverId: string, payload: CallToolDto) {
-    const server = (await this.mcpServersRepository.getById(
-      serverId,
-    )) as unknown as McpServerType | undefined;
+    const server = (await this.mcpServersRepository.getById(serverId)) as any;
 
     if (!server) throw new NotFoundError("Server not found");
 
@@ -121,10 +118,21 @@ export class OrchestratorService {
         error: null,
       });
 
-      return { kind: "approval_required", action_log: pendingLog as ActionLogType };
+      return {
+        kind: "approval_required",
+        action_log: pendingLog as ActionLogType,
+      };
     }
 
     const client = await connectToMcpServer(server);
+
+    let outcome: {
+      kind: "executed";
+      result: unknown;
+      action_log: ActionLogType;
+    };
+
+    let failure: BadRequestError | null = null;
 
     try {
       const result = await client.callTool({
@@ -133,7 +141,10 @@ export class OrchestratorService {
       });
 
       const raw = this.resultText(result);
-      const reportedError = (result as { isError?: boolean })?.isError === true || looksLikeError(raw);
+
+      const reportedError =
+        (result as { isError?: boolean })?.isError === true ||
+        looksLikeError(raw);
 
       const log = await this.actionLogsRepository.create({
         mcp_server_id: server.id,
@@ -144,15 +155,18 @@ export class OrchestratorService {
         status: reportedError ? "failed" : "succeeded",
         requires_approval: requiresApproval,
         error: reportedError ? raw.slice(0, 500) : null,
-      } as Partial<ActionLogType>);
+      });
 
-      return {
+      outcome = {
         kind: "executed",
         result: normalizeMcpResult(result),
         action_log: log as ActionLogType,
       };
     } catch (err) {
-      const errorMessage = this.getToolErrorMessage(server, toolName, err);
+      const rawMessage = err instanceof Error ? err.message : String(err);
+
+      const errorMessage = `Tool call failed: ${rawMessage}`;
+
       const log = await this.actionLogsRepository.create({
         mcp_server_id: server.id,
         project_id: server.project_id,
@@ -162,14 +176,18 @@ export class OrchestratorService {
         status: "failed",
         requires_approval: requiresApproval,
         error: errorMessage,
-      } as Partial<ActionLogType>);
+      });
 
-      throw new BadRequestError(errorMessage, {
+      failure = new BadRequestError(errorMessage, {
         action_log: log,
       });
-    } finally {
-      await client.close();
     }
+
+    await client.close();
+
+    if (failure) throw failure;
+
+    return outcome!;
   }
 
   public async history(serverId?: string, projectId?: string) {
@@ -182,7 +200,9 @@ export class OrchestratorService {
     }
 
     const filter: Partial<ActionLogType> = {};
+
     if (serverId) filter.mcp_server_id = serverId;
+
     if (projectId) filter.project_id = projectId;
 
     const logs = await this.actionLogsRepository.findMany(filter);
@@ -193,35 +213,15 @@ export class OrchestratorService {
   private resultText(result: unknown): string {
     const content = (result as { content?: unknown })?.content;
 
-    if (Array.isArray(content)) {
-      return content
-        .map((part) => (typeof (part as { text?: unknown })?.text === "string" ? (part as { text: string }).text : ""))
-        .filter(Boolean)
-        .join("\n");
+    if (!Array.isArray(content)) {
+      return typeof result === "string" ? result : JSON.stringify(result ?? "");
     }
 
-    return typeof result === "string" ? result : JSON.stringify(result ?? "");
-  }
+    const parts = content as { text?: unknown }[];
 
-  private getToolErrorMessage(
-    server: McpServerType,
-    toolName: string,
-    error: unknown,
-  ): string {
-    const rawMessage = error instanceof Error ? error.message : String(error);
-
-    if (
-      server.provider === "s3-r2" &&
-      toolName === "s3_list_buckets" &&
-      /access\s*denied|accessdenied|\b403\b/i.test(rawMessage)
-    ) {
-      return [
-        "R2 denied account-wide bucket listing.",
-        "Use an R2 API token with Admin Read only (or Admin Read & Write) permission applied to all buckets.",
-        "Object Read & Write tokens scoped to one bucket cannot list buckets.",
-      ].join(" ");
-    }
-
-    return `Tool call failed: ${rawMessage}`;
+    return parts
+      .map((part) => (typeof part.text === "string" ? part.text : ""))
+      .filter(Boolean)
+      .join("\n");
   }
 }

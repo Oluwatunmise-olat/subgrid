@@ -2,7 +2,7 @@ import type {
 	BridgePreset,
 	CatalogCategory,
 	CatalogIntegration,
-} from './catalog.types';
+} from '@/common/types/catalog';
 
 export type {
 	AuthSpec,
@@ -13,7 +13,7 @@ export type {
 	FieldType,
 	RestVerb,
 	VerbParam,
-} from './catalog.types';
+} from '@/common/types/catalog';
 
 export const CATEGORY_LABELS: Record<CatalogCategory, string> = {
   "storage": "Storage",

@@ -6,22 +6,21 @@ import { NotFoundError } from "@/common/utils/errors/app.error";
 import {
   getCachedToolManifest,
   invalidateToolManifest,
-} from "./tool-manifest-cache";
-import { ProjectCapabilitySnapshot } from "../types/planning.types";
+} from "@/common/utils/tool-manifest-cache";
+import { ProjectCapabilitySnapshot } from "@/common/types/planning";
 
 @injectable()
 export class CapabilityRegistryService {
   constructor(private readonly mcpServersRepository: McpServersRepository) {}
 
-  public async getSnapshot(
-    projectId: string,
-  ): Promise<ProjectCapabilitySnapshot> {
+  public async getSnapshot(projectId: string) {
     const servers = await this.loadServers(projectId);
 
     const perServer = await Promise.all(
       servers.map(async (server) => {
         try {
           const tools = await getCachedToolManifest(server);
+
           return tools.map((tool) => ({
             id: `${server.id}:${tool.toolName}`,
             serverId: server.id,
@@ -50,16 +49,18 @@ export class CapabilityRegistryService {
     };
   }
 
-  public async refresh(projectId: string): Promise<ProjectCapabilitySnapshot> {
+  public async refresh(projectId: string) {
     const servers = await this.loadServers(projectId);
+
     servers.forEach((server) => invalidateToolManifest(server.id));
+
     return this.getSnapshot(projectId);
   }
 
   private async loadServers(projectId: string) {
     const servers = (await this.mcpServersRepository.findMany({
       project_id: projectId,
-    } as Partial<McpServerType>)) as unknown as McpServerType[];
+    })) as unknown as McpServerType[];
 
     if (!servers) throw new NotFoundError("Project not found");
 

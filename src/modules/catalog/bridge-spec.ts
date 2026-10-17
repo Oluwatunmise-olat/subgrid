@@ -1,5 +1,5 @@
 import { BRIDGE_SENTINELS } from '@/common/implementations/mcp/bridges';
-import { BridgePreset } from './catalog.types';
+import { BridgePreset } from '@/common/types/catalog';
 
 const buildRestSpec = (preset: BridgePreset) => ({
 	name: preset.id,

@@ -10,6 +10,7 @@ import {
 
 import { REQUEST_TIMEOUT_MS, SAFE_SEGMENT, placeholderPattern } from './constants';
 import { Auth, Spec, Verb } from './types';
+import { slug } from '@/common/utils/slug';
 
 const interpolateEnv = (value: string): string =>
 	value.replace(/\$\{([A-Za-z0-9_]+)\}/g, (_, key) => process.env[key] ?? '');
@@ -132,8 +133,6 @@ for (const key of authEnvRefs(spec.auth)) {
 		process.stderr.write(`[http-bridge] warning: ${key} is not set; auth will be incomplete\n`);
 	}
 }
-
-const slug = (value: string) => value.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '').toLowerCase();
 
 const resolveLocation = (verb: Verb, name: string): 'path' | 'query' | 'body' => {
 	const explicit = verb.params?.[name]?.in;
@@ -316,6 +315,9 @@ const callVerb = async (verb: Verb, args: Record<string, any>) => {
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
+	let result: { ok: boolean; status: number; url: string; body: string } | undefined;
+	let fetchError: unknown;
+
 	try {
 		const response = await fetch(url, {
 			method,
@@ -327,15 +329,21 @@ const callVerb = async (verb: Verb, args: Record<string, any>) => {
 
 		const text = await response.text();
 
-		return {
+		result = {
 			ok: response.ok,
 			status: response.status,
 			url: url.toString(),
 			body: text,
 		};
-	} finally {
-		clearTimeout(timer);
+	} catch (err) {
+		fetchError = err;
 	}
+
+	clearTimeout(timer);
+
+	if (fetchError) throw fetchError;
+
+	return result!;
 };
 
 const server = new Server(

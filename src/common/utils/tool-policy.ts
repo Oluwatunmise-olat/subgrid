@@ -1,71 +1,75 @@
-import { McpServerType } from '@/models/mcp-server.model';
-import type { McpToolFilter } from '@/models/types';
+import { McpServerType } from "@/models/mcp-server.model";
+import type { McpToolFilter } from "@/models/types";
 
-export const DEFAULT_APPROVAL_POLICY = 'prompt';
+export const DEFAULT_APPROVAL_POLICY = "prompt";
 
 const DESTRUCTIVE_KEYWORDS = [
-	'delete',
-	'remove',
-	'drop',
-	'destroy',
-	'revoke',
-	'purge',
+  "delete",
+  "remove",
+  "drop",
+  "destroy",
+  "revoke",
+  "purge",
 ];
 
-export const isDestructive = (toolName: string): boolean =>
-	DESTRUCTIVE_KEYWORDS.some((keyword) =>
-		(toolName || '').toLowerCase().includes(keyword),
-	);
+const includesAny = (text: string, keywords: string[]): boolean => {
+  for (const keyword of keywords) {
+    if (text.includes(keyword)) return true;
+  }
+  return false;
+};
 
-const matchesPattern = (name: string, pattern: string): boolean => {
-	const value = (pattern || '').trim();
-	if (!value) return false;
-	if (value.endsWith('*')) return name.startsWith(value.slice(0, -1));
-	return name === value;
+export const isDestructive = (toolName: string) =>
+  includesAny((toolName || "").toLowerCase(), DESTRUCTIVE_KEYWORDS);
+
+const matchesPattern = (name: string, pattern: string) => {
+  const value = (pattern || "").trim();
+  if (!value) return false;
+  if (value.endsWith("*")) return name.startsWith(value.slice(0, -1));
+  return name === value;
+};
+
+const matchesAnyPattern = (name: string, patterns: string[]): boolean => {
+  for (const pattern of patterns) {
+    if (matchesPattern(name, pattern)) return true;
+  }
+  return false;
 };
 
 const normalize = (filter: McpToolFilter) => ({
-	include: (filter?.include || []).map((p) => p.trim()).filter(Boolean),
-	exclude: (filter?.exclude || []).map((p) => p.trim()).filter(Boolean),
+  include: (filter?.include || []).map((p) => p.trim()).filter(Boolean),
+  exclude: (filter?.exclude || []).map((p) => p.trim()).filter(Boolean),
 });
 
-export const isToolAllowed = (
-	toolName: string,
-	filter: McpToolFilter,
-): boolean => {
-	const { include, exclude } = normalize(filter);
+export const isToolAllowed = (toolName: string, filter: McpToolFilter) => {
+  const { include, exclude } = normalize(filter);
 
-	if (exclude.some((pattern) => matchesPattern(toolName, pattern)))
-		return false;
-	if (include.length > 0 && !include.some((pattern) => matchesPattern(toolName, pattern)))
-		return false;
+  if (matchesAnyPattern(toolName, exclude)) return false;
+  if (include.length > 0 && !matchesAnyPattern(toolName, include)) return false;
 
-	return true;
+  return true;
 };
 
 export const filterTools = <T extends { toolName: string }>(
-	tools: T[],
-	filter: McpToolFilter,
+  tools: T[],
+  filter: McpToolFilter,
 ): T[] => tools.filter((tool) => isToolAllowed(tool.toolName, filter));
 
 export const resolveRequiresApproval = (
-	server: Pick<McpServerType, 'approval_policy' | 'approved_tools'>,
-	toolName: string,
-	declared = false,
-): boolean => {
-	const granted = (server.approved_tools || []).some((pattern) =>
-		matchesPattern(toolName, pattern),
-	);
-	if (granted) return false;
+  server: Pick<McpServerType, "approval_policy" | "approved_tools">,
+  toolName: string,
+  catalogRequiresApproval = false,
+) => {
+  const alreadyApproved = matchesAnyPattern(toolName, server.approved_tools || []);
 
-	if (declared) return true;
+  if (alreadyApproved) return false;
 
-	switch (server.approval_policy || DEFAULT_APPROVAL_POLICY) {
-		case 'auto':
-			return false;
-		case 'always':
-			return true;
-		default:
-			return isDestructive(toolName);
-	}
+  if (catalogRequiresApproval) return true;
+
+  const policy = server.approval_policy || DEFAULT_APPROVAL_POLICY;
+
+  if (policy === "auto") return false;
+  if (policy === "always") return true;
+
+  return isDestructive(toolName);
 };

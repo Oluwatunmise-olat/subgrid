@@ -10,16 +10,35 @@ import { ZodType } from "zod";
 import { embedders, llm as llmConfig } from "@/conf/env";
 import { LlmTimeoutError } from "@/common/utils/errors/app.error";
 import { extractJson } from "@/common/utils/json";
-import {
-  LlmPlanResult,
-  LlmToolSpec,
-} from "@/modules/planning/types/planning.types";
+import { LlmOverride } from "@/common/types/llm";
+import { LlmPlanResult, LlmToolSpec } from "@/common/types/planning";
 
 @singleton()
 export class OpenAIllmProcessor {
   private llmInstance: ChatOpenAI | null = null;
 
-  private getLlm(): ChatOpenAI {
+  public isConfigured(): boolean {
+    return Boolean(embedders.openai.apiKey || embedders.openrouter.apiKey);
+  }
+
+  private getLlm(override?: LlmOverride): ChatOpenAI {
+    if (override?.apiKey) {
+      const useOpenRouter = override.provider === "openrouter";
+
+      return new ChatOpenAI({
+        apiKey: override.apiKey,
+        model: useOpenRouter
+          ? embedders.openrouter.model
+          : embedders.openai.chat_model,
+        maxRetries: 2,
+        temperature: 0.1,
+        maxTokens: llmConfig.max_output_tokens,
+        ...(useOpenRouter
+          ? { configuration: { baseURL: embedders.openrouter.baseUrl } }
+          : {}),
+      });
+    }
+
     const useOpenRouter =
       !embedders.openai.apiKey && Boolean(embedders.openrouter.apiKey);
     const apiKey = useOpenRouter
@@ -55,8 +74,9 @@ export class OpenAIllmProcessor {
     userPrompt: string,
     schema: ZodType<T>,
     timeoutMs?: number,
+    override?: LlmOverride,
   ): Promise<T> {
-    const llm = this.getLlm();
+    const llm = this.getLlm(override);
     const signal = AbortSignal.timeout(timeoutMs || llmConfig.timeout_ms);
 
     try {
@@ -80,8 +100,9 @@ export class OpenAIllmProcessor {
     systemPrompt: string,
     conversation: { role: "user" | "assistant"; content: string }[],
     tools: LlmToolSpec[],
+    override?: LlmOverride,
   ): Promise<LlmPlanResult> {
-    const llm = this.getLlm();
+    const llm = this.getLlm(override);
     const signal = AbortSignal.timeout(llmConfig.timeout_ms);
 
     const boundLlm = tools.length

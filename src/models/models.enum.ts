@@ -6,4 +6,6 @@ export const MODEL_TYPE_PREFIXES: Record<string, string> = {
 	oauth_connections: 'oauth',
 	workflows: 'wf',
 	workflow_steps: 'wfs',
+	llm_settings: 'llm',
+	passkey_challenges: 'chal',
 };

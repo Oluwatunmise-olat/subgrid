@@ -9,7 +9,7 @@ import { McpServerType } from "@/models/mcp-server.model";
 import type { McpServerSecrets } from "@/models/types";
 import { decryptJson } from "@/common/utils/encrypt-decrypt";
 import { OAuthConnectionsRepository } from "@/repositories";
-import { CatalogService } from "@/modules/catalog/catalog.service";
+import { CatalogService } from "@/modules/catalog/services/catalog.service";
 import { resolveStdioCommand } from "./bridges";
 import { SubgridOAuthProvider } from "./oauth-provider";
 
@@ -48,7 +48,7 @@ const safeProcessEnv = (): Record<string, string> => {
     if (value === undefined) continue;
     if (
       SAFE_ENV_KEYS.includes(key) ||
-      SAFE_ENV_PREFIXES.some((prefix) => key.startsWith(prefix))
+      SAFE_ENV_PREFIXES.find((prefix) => key.startsWith(prefix)) !== undefined
     ) {
       out[key] = value;
     }

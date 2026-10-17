@@ -1,4 +1,4 @@
-import { ToolCapability } from "@/modules/planning/types/planning.types";
+import { ToolCapability } from "@/common/types/planning";
 
 export type PlannedStep = {
   serverId: string;

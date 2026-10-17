@@ -64,6 +64,7 @@ export class SecurityController {
       response: assertion,
       label,
     } = request.body as RegistrationVerifyDto;
+
     const data = await this.passkeyService.verifyRegistration(
       session_id,
       assertion,

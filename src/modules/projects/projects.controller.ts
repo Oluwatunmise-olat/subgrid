@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import { genericResponse } from '@/common/utils/http';
 import { CreateProjectDto, SuggestComponentsDto, UpdateProjectDto } from './dto/validation.dto';
 import { ProjectsService } from './services/projects.service';
-import { SuggestionService } from '@/modules/catalog/suggestion.service';
+import { SuggestionService } from '@/modules/catalog/services/suggestion.service';
 
 @injectable()
 export class ProjectsController {

@@ -1,4 +1,4 @@
-import { ToolEntry } from "../types/planning.types";
+import { ToolEntry } from "@/common/types/planning";
 import {
   inferRequestCapability,
   isConfidentOperation,
@@ -6,6 +6,7 @@ import {
   writeOperationFamily,
 } from "./tool-capability";
 import { RequestEntities } from "@/common/types/entities";
+import { tokenize } from "@/common/utils/tokenize";
 
 export const READ_ONLY_ACTIONS = [
   "list",
@@ -73,12 +74,6 @@ export const OPERATIONAL_INTENT = [
   "run",
 ];
 
-const tokenize = (value: string): string[] =>
-  value
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .toLowerCase()
-    .match(/[a-z0-9]+/g) || [];
-
 const normalizeRoutingToken = (token: string) => {
   if (token.length > 4 && token.endsWith("ies"))
     return `${token.slice(0, -3)}y`;
@@ -112,8 +107,11 @@ export const actionOverlap = (message: string, toolName: string) => {
   return requestedActions.filter((action) => toolActions.includes(action));
 };
 
-export const isDocumentationRequest = (message: string) =>
-  DOCUMENTATION_INTENT.some((term) => message.toLowerCase().includes(term));
+export const isDocumentationRequest = (message: string) => {
+  const lowerMessage = message.toLowerCase();
+
+  return DOCUMENTATION_INTENT.find((term) => lowerMessage.includes(term)) !== undefined;
+};
 export const isDocumentationTool = (toolName: string) =>
   DOCUMENTATION_TOOLS.has(toolName.toLowerCase());
 
@@ -158,7 +156,10 @@ const ENTITY_ARG_ALIASES: Record<keyof RequestEntities, string[]> = {
   record: ["record", "Record", "name", "Name", "record_name"],
 };
 
-export const resolveArgsFromEntities = (entry: ToolEntry, entities: RequestEntities) => {
+export const resolveArgsFromEntities = (
+  entry: ToolEntry,
+  entities: RequestEntities,
+) => {
   const required: string[] = Array.isArray(entry.schema?.required)
     ? entry.schema.required
     : [];
@@ -199,7 +200,7 @@ export const isFastPathCandidate = (
       description: tool.entry.description,
       serverName: tool.entry.server.name,
     }).length > 0 &&
-    READ_ONLY_ACTIONS.includes(action) &&
+    READ_ONLY_ACTIONS.includes(action!) &&
     resolveArgsFromEntities(tool.entry, entities).satisfied
   );
 };

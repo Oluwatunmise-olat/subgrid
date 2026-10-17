@@ -2,7 +2,7 @@ import { injectable } from "tsyringe";
 import { Request, Response } from "express";
 
 import { genericResponse } from "@/common/utils/http";
-import { CatalogService } from "./catalog.service";
+import { CatalogService } from "./services/catalog.service";
 
 @injectable()
 export class CatalogController {

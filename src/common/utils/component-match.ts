@@ -40,7 +40,11 @@ export const mentionsComponent = (message: string, serverName: string): boolean 
 	const messageLower = message.toLowerCase();
 	const tokens = tokenize(serverName).filter((token) => token.length >= 4);
 
-	if (tokens.some((token) => messageLower.includes(token))) return true;
+	if (tokens.find((token) => messageLower.includes(token)) !== undefined) return true;
 
-	return tokenize(message).some((word) => tokens.some((token) => nearMatch(word, token)));
+	for (const word of tokenize(message)) {
+		if (tokens.find((token) => nearMatch(word, token)) !== undefined) return true;
+	}
+
+	return false;
 };
