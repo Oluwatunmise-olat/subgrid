@@ -22,13 +22,12 @@ import {
 } from "./common/types/http";
 import { app as appConf } from "./conf/env";
 
-const UI_DIR = path.join(__dirname, "../public");
-const UI_INDEX_FILE = path.join(UI_DIR, "index.html");
-
 @singleton()
 export default class Application {
   private _serverInstance!: http.Server;
   private readonly app: AppServer;
+  private readonly UI_DIR = path.join(__dirname, "../public");
+  private readonly UI_INDEX_FILE = path.join(this.UI_DIR, "index.html");
   private bootstrapPromise: Promise<void>;
 
   constructor() {
@@ -68,16 +67,21 @@ export default class Application {
       },
     );
 
-    const uiBundled = existsSync(UI_INDEX_FILE);
+    const uiBundled = existsSync(this.UI_INDEX_FILE);
 
-    if (uiBundled) this.app.use(express.static(UI_DIR));
+    if (uiBundled) this.app.use(express.static(this.UI_DIR));
 
     routes(this.app);
 
     if (uiBundled) {
-      this.app.get(/^(?!\/api\/).*/, (_req: AppRequest, res: AppResponse) => {
-        res.sendFile(UI_INDEX_FILE);
-      });
+      this.app.get(
+        "*",
+        (req: AppRequest, res: AppResponse, next: AppNextFunction) => {
+          if (req.path.startsWith("/api/")) return next();
+
+          res.sendFile(this.UI_INDEX_FILE);
+        },
+      );
     }
 
     this.app.use(routeNotFoundHandler);
