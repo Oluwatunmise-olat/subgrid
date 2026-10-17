@@ -205,7 +205,8 @@ that instead of assuming.
 ## Contributing
 
 Issues and PRs are welcome. See [`docs/concepts.md`](docs/concepts.md) for
-how the pieces fit together (bridges, planning, security model) and
-[`CONTRIBUTING.md`](CONTRIBUTING.md) for the project layout, code style, and
-step-by-step guides for adding a catalog integration, a bridge preset, or a
-new module.
+how the pieces fit together (bridges, planning, security model),
+[`docs/examples.md`](docs/examples.md) for real catalog/preset entries to
+copy from, and [`CONTRIBUTING.md`](CONTRIBUTING.md) for the project layout,
+code style, and step-by-step guides for adding a catalog integration, a
+bridge preset, or a new module.
