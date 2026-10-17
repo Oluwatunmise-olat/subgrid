@@ -45,8 +45,8 @@ fails the moment the corresponding feature is touched.
 | ----------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `ENCRYPTION_KEY`                         | connecting any component with credentials | `openssl rand -hex 32`. Encrypts stored component credentials. Fails on first use, not at boot.              |
 | `APPROVAL_SECRET`                        | signing in at all                         | `openssl rand -hex 32`. Signs the passkey session/approval tokens. Also fails on first use.                  |
-| `RP_ID` / `RP_ORIGIN`                    | passkey sign-in                           | WebAuthn relying party. `localhost` only works for local use; set to your real domain for a real deployment. |
-| `CLIENT_URL`                             | CORS                                      | where `subgrid-ui` is served from. Defaults to `http://localhost:5173`.                                       |
+| `RP_ID` / `RP_ORIGIN`                    | passkey sign-in                           | WebAuthn relying party. `RP_ORIGIN` must exactly match the browser origin you actually open — the Docker image serves everything on `:8081`, so it defaults there; passkeys fail with an origin mismatch if this is wrong. `localhost` only works for local use; set both to your real domain for a real deployment. |
+| `CLIENT_URL`                             | OAuth redirects, CORS                     | where the UI is actually served from — `:8081` by default (bundled with the API in the Docker image). Only change this (and `RP_ORIGIN`) to `:5173` if you're running `subgrid-ui` as its own separate Vite dev server instead — see "From source" below. |
 | `OPENAI_API_KEY` or `OPENROUTER_API_KEY` | the plain-language planner (`/plan`)      | optional; everything else works without it, `/plan` just returns a clear error.                              |
 
 ```bash
@@ -61,15 +61,64 @@ you want to inspect the database directly).
 
 A pre-built image is also published to GHCR on every push to `main` and on
 version tags (`.github/workflows/docker-publish.yml`), if you'd rather pull
-than build locally:
+than build locally. `docker-compose.yml`'s `app` service builds from source
+by default; swap `build: .` for `image: ghcr.io/oluwatunmise-olat/subgrid:latest`
+there if you want compose to use the published image instead.
 
-```bash
-docker pull ghcr.io/oluwatunmise-olat/subgrid:latest
+**Without cloning the repo at all** — the image is self-contained and
+already has the UI bundled into it (same image, same port, nothing separate
+to run for it), so you only need a `docker-compose.yml` you write yourself.
+Save this as `docker-compose.yml` in an empty directory, fill in the two
+secrets, and run `docker compose up -d` (the `command:` override is what
+runs migrations on boot — the image's own default command doesn't). Once
+it's up, `http://localhost:8081` is both the UI and the API:
+
+```yaml
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: subgrid
+    volumes:
+      - subgrid_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: ghcr.io/oluwatunmise-olat/subgrid:latest
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 8081
+      CLIENT_URL: http://localhost:8081
+      DB_CLIENT: pg
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_DATABASE: subgrid
+      DB_SSL: "false"
+      ENCRYPTION_KEY: # openssl rand -hex 32
+      APPROVAL_SECRET: # openssl rand -hex 32
+      RP_NAME: Subgrid
+      RP_ID: localhost
+      RP_ORIGIN: http://localhost:8081
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh -c "bun run migrate && bun src/index.ts"
+
+volumes:
+  subgrid_postgres_data:
 ```
-
-(`docker-compose.yml`'s `app` service builds from source by default; swap
-`build: .` for `image: ghcr.io/oluwatunmise-olat/subgrid:latest` there if you
-want compose to use the published image instead.)
 
 **From source** (for development):
 
@@ -88,6 +137,10 @@ pointing at a different Postgres.
 Running from source only starts the API — the UI bundling happens in the
 Docker build, not `bun run dev`. For frontend development, run `subgrid-ui`
 separately per its own README, pointed at this API via `VITE_API_BASE_URL`.
+Since the UI is then on its own Vite dev server (`:5173` by default) instead
+of sharing `:8081` with the API, also set `CLIENT_URL` and `RP_ORIGIN` in
+`.env` to `http://localhost:5173` for this workflow — passkey sign-in will
+fail with an origin mismatch otherwise.
 
 ## Trust model: bridges vs. community MCP servers
 
