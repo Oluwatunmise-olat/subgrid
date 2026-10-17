@@ -53,9 +53,23 @@ fails the moment the corresponding feature is touched.
 docker compose up -d
 ```
 
-This builds the app image, starts Postgres, runs migrations automatically on
-boot, and starts the API on `:8081` (Adminer, a Postgres UI, is on `:8083`
-if you want to inspect the database directly).
+This builds the app image (which bundles the `subgrid-ui` frontend into the
+same image at build time), starts Postgres, runs migrations automatically on
+boot, and serves both the API and the UI on `:8081` — open that URL directly,
+there's nothing separate to start (Adminer, a Postgres UI, is on `:8083` if
+you want to inspect the database directly).
+
+A pre-built image is also published to GHCR on every push to `main` and on
+version tags (`.github/workflows/docker-publish.yml`), if you'd rather pull
+than build locally:
+
+```bash
+docker pull ghcr.io/oluwatunmise-olat/subgrid:latest
+```
+
+(`docker-compose.yml`'s `app` service builds from source by default; swap
+`build: .` for `image: ghcr.io/oluwatunmise-olat/subgrid:latest` there if you
+want compose to use the published image instead.)
 
 **From source** (for development):
 
@@ -64,15 +78,16 @@ docker compose up -d postgres adminer
 cp .env.example .env
 bun install
 bun run migrate
-bun run dev                 # http://localhost:8081
+bun run dev                 # http://localhost:8081, API only
 ```
 
 `docker-compose.yml` maps Postgres to host port **5434**, not 5432, to avoid
 colliding with other local Postgres instances. Adjust `.env` if you're
 pointing at a different Postgres.
 
-For the UI, see the `subgrid-ui` repo's own README. It's a separate Vite/React
-app that talks to this API over `VITE_API_BASE_URL`.
+Running from source only starts the API — the UI bundling happens in the
+Docker build, not `bun run dev`. For frontend development, run `subgrid-ui`
+separately per its own README, pointed at this API via `VITE_API_BASE_URL`.
 
 ## Trust model: bridges vs. community MCP servers
 
@@ -189,7 +204,8 @@ that instead of assuming.
 
 ## Contributing
 
-Issues and PRs are welcome. There's no formal process yet. Open an issue to
-discuss anything nontrivial before sending a large PR, keep changes scoped,
-and make sure `bun run verify:*` (see `package.json`) and `bunx tsc --noEmit`
-stay clean.
+Issues and PRs are welcome. See [`docs/concepts.md`](docs/concepts.md) for
+how the pieces fit together (bridges, planning, security model) and
+[`CONTRIBUTING.md`](CONTRIBUTING.md) for the project layout, code style, and
+step-by-step guides for adding a catalog integration, a bridge preset, or a
+new module.

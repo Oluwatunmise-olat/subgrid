@@ -4,6 +4,8 @@ dist/
 *.log
 *.md
 !README.md
+!CONTRIBUTING.md
+!docs/*.md
 tests/
 # local database dumps
 backups/
