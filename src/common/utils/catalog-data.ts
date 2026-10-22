@@ -26,6 +26,36 @@ export const CATEGORY_LABELS: Record<CatalogCategory, string> = {
 
 export const INTEGRATIONS: CatalogIntegration[] = [
   {
+    "id": "digitalocean",
+    "official": true,
+    "name": "DigitalOcean",
+    "category": "paas",
+    "description": "Manage DigitalOcean apps, droplets and databases via DigitalOcean's official MCP server",
+    "command": "npx",
+    "baseArgs": [
+      "-y",
+      "@digitalocean/mcp",
+      "--services",
+      "apps,droplets,databases"
+    ],
+    "fields": [
+      {
+        "key": "DIGITALOCEAN_API_TOKEN",
+        "label": "API token",
+        "type": "password",
+        "help": "DigitalOcean → API → Tokens. Grant only the scopes needed for the services you enable."
+      }
+    ],
+    "docs": {
+      "label": "DigitalOcean MCP documentation",
+      "url": "https://docs.digitalocean.com/reference/mcp/"
+    },
+    "steps": [
+      "Create a DigitalOcean personal access token with the minimum required scopes.",
+      "Use a token with write access only if you intend to create or change resources."
+    ]
+  },
+  {
     "id": "resend",
     "official": true,
     "name": "Resend",

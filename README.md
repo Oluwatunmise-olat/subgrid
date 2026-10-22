@@ -199,6 +199,33 @@ curl -X POST localhost:8081/api/v1/mcp-servers -H "Content-Type: application/jso
 }'
 ```
 
+### DigitalOcean (official MCP server)
+
+DigitalOcean publishes an official MCP server for Apps, Droplets and
+Databases. The catalog entry uses the local `stdio` server and keeps the
+API token encrypted in Subgrid's database:
+
+```bash
+curl -X POST localhost:8081/api/v1/mcp-servers -H "Content-Type: application/json" -d '{
+  "name": "DigitalOcean",
+  "slug": "digitalocean",
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "@digitalocean/mcp", "--services", "apps,droplets,databases"],
+  "env": {
+    "DIGITALOCEAN_API_TOKEN": "your-api-token"
+  }
+}'
+```
+
+Use a token with only the scopes required for the services you enable. Creating
+or deleting infrastructure can incur charges or cause data loss, so those
+actions should remain behind Subgrid's approval flow.
+
+DigitalOcean also provides hosted MCP endpoints with OAuth. The local server is
+used here because it exposes the individual service tools directly to
+Subgrid's planner.
+
 ### Coolify ([`coolify-mcp-server`](https://www.npmjs.com/package/coolify-mcp-server) on npm)
 
 Full Coolify v4.1.1+ API coverage: servers, projects, environments, applications, deployments. Token: Coolify dashboard → **Security → API Tokens**.

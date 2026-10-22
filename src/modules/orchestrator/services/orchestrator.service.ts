@@ -23,6 +23,8 @@ import { looksLikeError } from "@/common/utils/result-normalizer";
 
 @injectable()
 export class OrchestratorService {
+  private readonly MCP_TOOL_TIMEOUT_MS = 30_000;
+
   constructor(
     private readonly mcpServersRepository: McpServersRepository,
     private readonly actionLogsRepository: ActionLogsRepository,
@@ -135,10 +137,14 @@ export class OrchestratorService {
     let failure: BadRequestError | null = null;
 
     try {
-      const result = await client.callTool({
-        name: toolName,
-        arguments: input,
-      });
+      const result = await client.callTool(
+        {
+          name: toolName,
+          arguments: input,
+        },
+        undefined,
+        { timeout: this.MCP_TOOL_TIMEOUT_MS },
+      );
 
       const raw = this.resultText(result);
 

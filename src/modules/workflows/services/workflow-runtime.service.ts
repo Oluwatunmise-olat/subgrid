@@ -213,7 +213,7 @@ export class WorkflowRuntimeService {
 
     await this.workflowsRepository.update({ id }, { status: "running" });
 
-    await this.runSteps(id, workflow.execution_mode);
+    await this.runSteps(id, workflow.execution_mode, true);
 
     return this.getWorkflow(id);
   }
@@ -376,6 +376,7 @@ export class WorkflowRuntimeService {
   private async runSteps(
     workflowId: string,
     executionMode: "sequential" | "parallel",
+    approved = false,
   ) {
     const steps = await this.workflowStepsRepository.findByWorkflow(workflowId);
 
@@ -415,17 +416,17 @@ export class WorkflowRuntimeService {
       );
 
       await Promise.all(
-        parallelGroup.map((step) => this.runOneStep(step, false)),
+        parallelGroup.map((step) => this.runOneStep(step, approved)),
       );
 
       for (const step of sequentialRest) {
-        const outcome = await this.runOneStep(step, false);
+        const outcome = await this.runOneStep(step, approved);
 
         if (outcome === "failed" || outcome === "awaiting_approval") break;
       }
     } else {
       for (const step of runnable) {
-        const outcome = await this.runOneStep(step, false);
+        const outcome = await this.runOneStep(step, approved);
 
         if (outcome === "failed" || outcome === "awaiting_approval") break;
       }

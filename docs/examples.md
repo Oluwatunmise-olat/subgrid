@@ -1,84 +1,45 @@
 # Examples
 
-Worked examples for extending Subgrid, for real vendors that aren't already
-in `catalog-data.ts`. The point is to show what a real PR adding one of
-these would look like, not to re-quote code you can already read directly
-in the repo. Double-check paths/fields against the vendor's live docs
-before actually merging either one — APIs move.
+Worked examples for extending Subgrid with real vendor integrations and
+presets. The point is to show what a real PR adding one of these would look
+like, not to re-quote code you can already read directly in the repo.
+Double-check paths/fields against the vendor's live docs before merging — APIs
+move.
 
 See [`CONTRIBUTING.md`](../CONTRIBUTING.md#adding-a-bridge-preset-rest-or-s3-api-with-no-mcp-server)
 for the rules around contributing a catalog entry, and
 [`concepts.md`](concepts.md#bridges-how-presets-become-mcp-servers) for what
 a preset/bridge actually is.
 
-## A new bridge preset: DigitalOcean (REST, no MCP server exists for it)
+## A native catalog integration: DigitalOcean's official MCP server
 
-DigitalOcean has no MCP server, just a REST API — base URL
-`https://api.digitalocean.com`, bearer-token auth, same as Cloudflare DNS
-or Coolify already in the catalog. A full PR would cover more than
-Droplets (volumes, domains, etc.); this is trimmed to show the shape:
+DigitalOcean now publishes an official MCP server, so it belongs in
+`INTEGRATIONS`, not `BRIDGE_PRESETS`. The local server can expose only the
+services the instance needs:
 
 ```ts
 {
   id: "digitalocean",
-  kind: "rest",
+  official: true,
   name: "DigitalOcean",
   category: "paas",
-  provider: "digitalocean",
-  description: "Droplets (VMs) on your DigitalOcean account",
-  docs: "https://docs.digitalocean.com/reference/api/digitalocean/",
-  baseUrl: "https://api.digitalocean.com",
-  auth: { header: "authorization", value: "Bearer ${DIGITALOCEAN_TOKEN}" },
+  description: "Apps, droplets and databases via DigitalOcean's official MCP server",
+  command: "npx",
+  baseArgs: ["-y", "@digitalocean/mcp", "--services", "apps,droplets,databases"],
   fields: [
     {
-      key: "DIGITALOCEAN_TOKEN",
+      key: "DIGITALOCEAN_API_TOKEN",
       label: "API token",
       type: "password",
-      help: "DigitalOcean → API → Tokens → Generate New Token, with read/write scope.",
-    },
-  ],
-  verbs: [
-    {
-      name: "list_droplets",
-      method: "GET",
-      path: "/v2/droplets",
-      description: "All Droplets on the account",
-      params: { tag_name: { in: "query" }, page: { type: "number", in: "query" } },
-    },
-    {
-      name: "create_droplet",
-      method: "POST",
-      path: "/v2/droplets",
-      description: "Create a new Droplet",
-      requiresApproval: true,
-      params: {
-        name: { in: "body", required: true, description: "hostname, e.g. web-01" },
-        region: { in: "body", required: true, description: "region slug, e.g. nyc3" },
-        size: { in: "body", required: true, description: "size slug, e.g. s-1vcpu-1gb" },
-        image: { in: "body", required: true, description: "image slug, e.g. ubuntu-22-04-x64" },
-      },
-    },
-    {
-      name: "delete_droplet",
-      method: "DELETE",
-      path: "/v2/droplets/{droplet_id}",
-      description: "Permanently destroy a Droplet",
-      requiresApproval: true,
-      params: { droplet_id: { description: "id from list_droplets" } },
-    },
-  ],
+      help: "DigitalOcean → API → Tokens. Grant only the scopes needed for the enabled services.",
+    }
+  ]
 }
 ```
 
-Why `requiresApproval: true` on both writes, not just the delete:
-`create_droplet` starts billing a real resource and `verbRequiresApproval()`
-has no way to know that from the verb name alone (unlike
-`delete_droplet`/`cancel_*`-style names, which the general destructive-
-keyword heuristic already catches) — see
-[`CONTRIBUTING.md`](../CONTRIBUTING.md) for how the two approval paths
-differ. A real PR should also set `region`/`size`/`image` as `enum` lists if
-DigitalOcean's docs give a stable, enumerable set — skipped here to keep
-the example short.
+The official server also has hosted OAuth endpoints, but the local form above
+matches Subgrid's existing `stdio` catalog integrations and exposes the
+individual service tools directly to the planner.
 
 ## A new catalog integration: the official GitHub MCP server
 
