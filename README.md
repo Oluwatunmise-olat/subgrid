@@ -9,6 +9,10 @@ for secrets.example.com",
 dashboards. Every action is planned, shown for approval before it runs, and
 logged.
 
+**Documentation:** [API overview](docs/api.md) · [Concepts](docs/concepts.md) ·
+[Examples](docs/examples.md) · [Troubleshooting](docs/troubleshooting.md) ·
+[Contributing](CONTRIBUTING.md)
+
 Runs entirely on infrastructure you control. Your secrets, your database,
 your audit log: nothing phones home.
 
@@ -35,19 +39,22 @@ your audit log: nothing phones home.
 cp .env.example .env
 ```
 
-The `DB_*` variables are the only ones actually checked at boot; they
-already default to match the `postgres` service below, so leave them alone
-unless you're pointing at your own Postgres. Set these in `.env` before you
-actually _use_ the app, though: the server will start fine without them, but
-fails the moment the corresponding feature is touched.
+The database settings in `.env.example` already match the included Postgres
+service. `ENCRYPTION_KEY` and `APPROVAL_SECRET` are checked at boot; before
+starting Subgrid, generate separate values for them:
+
+```bash
+openssl rand -hex 32 # ENCRYPTION_KEY
+openssl rand -hex 32 # APPROVAL_SECRET
+```
 
 | Variable                                 | Needed for                                | Notes                                                                                                       |
 | ----------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `ENCRYPTION_KEY`                         | connecting any component with credentials | `openssl rand -hex 32`. Encrypts stored component credentials. Fails on first use, not at boot.              |
-| `APPROVAL_SECRET`                        | signing in at all                         | `openssl rand -hex 32`. Signs the passkey session/approval tokens. Also fails on first use.                  |
+| `ENCRYPTION_KEY`                         | starting Subgrid and storing credentials   | Required at boot. Use `openssl rand -hex 32`; do not share it or commit it.                                  |
+| `APPROVAL_SECRET`                        | starting Subgrid and signing in            | Required at boot. Use a separate `openssl rand -hex 32`; signs passkey session and approval tokens.          |
 | `RP_ID` / `RP_ORIGIN`                    | passkey sign-in                           | WebAuthn relying party. `RP_ORIGIN` must exactly match the browser origin you actually open — the Docker image serves everything on `:8081`, so it defaults there; passkeys fail with an origin mismatch if this is wrong. `localhost` only works for local use; set both to your real domain for a real deployment. |
 | `CLIENT_URL`                             | OAuth redirects, CORS                     | where the UI is actually served from — `:8081` by default (bundled with the API in the Docker image). Only change this (and `RP_ORIGIN`) to `:5173` if you're running `subgrid-ui` as its own separate Vite dev server instead — see "From source" below. |
-| `OPENAI_API_KEY` or `OPENROUTER_API_KEY` | the plain-language planner (`/plan`)      | optional; everything else works without it, `/plan` just returns a clear error.                              |
+| `OPENAI_API_KEY` or `OPENROUTER_API_KEY` | ambiguous or multi-step planning           | Optional at boot and configurable later through the UI/API. Clear single-tool requests can work without it. |
 
 ```bash
 docker compose up -d
