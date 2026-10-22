@@ -2,7 +2,15 @@ import 'dotenv/config';
 import * as process from 'process';
 require('dotenv').config();
 
-const RUNTIME_REQUIRED_ENVS = ['DB_HOST', 'DB_PASSWORD', 'DB_PORT', 'DB_USERNAME', 'DB_DATABASE'];
+const RUNTIME_REQUIRED_ENVS = [
+	'DB_HOST',
+	'DB_PASSWORD',
+	'DB_PORT',
+	'DB_USERNAME',
+	'DB_DATABASE',
+	'ENCRYPTION_KEY',
+	'APPROVAL_SECRET',
+];
 
 export const app = {
 	name: 'subgrid',
@@ -88,4 +96,18 @@ export const validateRuntimeEnvs = () => {
 	const errMsg = `The following required env variable(s) are missing: ${concatenatedMissingEnvs}`;
 
 	if (nullEnvKeys.length) throw new Error(errMsg);
+
+	const dbPort = Number(process.env.DB_PORT);
+
+	if (!Number.isInteger(dbPort) || dbPort < 1 || dbPort > 65_535) {
+		throw new Error('DB_PORT must be an integer between 1 and 65535.');
+	}
+
+	if (!/^[0-9a-f]{64}$/i.test(process.env.ENCRYPTION_KEY!)) {
+		throw new Error('ENCRYPTION_KEY must be a 64-char hex string. Generate one with `openssl rand -hex 32`.');
+	}
+
+	if (process.env.APPROVAL_SECRET!.trim().length < 32) {
+		throw new Error('APPROVAL_SECRET must be at least 32 characters. Generate one with `openssl rand -hex 32`.');
+	}
 };
