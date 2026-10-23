@@ -29,7 +29,6 @@ import { stripUnavailableReferences } from "@/common/utils/step-input";
 import { insertMissingLookups } from "@/common/utils/lookup-insertion";
 import { budgetTools } from "@/common/utils/tool-budget";
 import {
-  actionOverlap,
   capabilityLabel,
   capabilityScore,
   isDocumentationRequest,
@@ -351,20 +350,11 @@ export class PlanningService {
         ? scoredByCapability
         : resourceCandidates.map((tool) => ({ ...tool, capabilityScore: 0 }));
 
-    const actionMatchedTools = capabilityFilteredTools.filter(
-      (tool) => actionOverlap(message, tool.entry.toolName).length > 0,
-    );
-
-    const candidateTools =
-      actionMatchedTools.length > 0
-        ? actionMatchedTools
-        : capabilityFilteredTools;
-
     const hasScoredCandidate =
-      candidateTools.find((tool) => tool.score > 0) !== undefined;
+      capabilityFilteredTools.find((tool) => tool.score > 0) !== undefined;
 
     const bestCandidates = hasScoredCandidate
-      ? candidateTools
+      ? capabilityFilteredTools
           .filter((tool) => tool.score > 0)
           .sort((a, b) => b.score - a.score)
       : discoveredTools;
@@ -424,8 +414,10 @@ export class PlanningService {
 
     if (
       singleStrongMatch &&
-      resolveArgsFromEntities(singleStrongMatch.entry, requestedCapability.entities)
-        .satisfied
+      resolveArgsFromEntities(
+        singleStrongMatch.entry,
+        requestedCapability.entities,
+      ).satisfied
     ) {
       return this.singleToolResult(
         singleStrongMatch,
