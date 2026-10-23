@@ -15,6 +15,7 @@ export type Verb = {
 	params?: Record<string, VerbParam>;
 	bodyArray?: boolean;
 	body_template?: unknown;
+	permissionHint?: string;
 };
 
 export type Auth =

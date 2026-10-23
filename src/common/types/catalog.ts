@@ -50,6 +50,7 @@ export type RestVerb = {
 	bodyArray?: boolean;
 	body_template?: unknown;
 	requiresApproval?: boolean;
+	permissionHint?: string;
 };
 
 export type AuthSpec =

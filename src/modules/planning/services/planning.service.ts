@@ -388,11 +388,15 @@ export class PlanningService {
     const hasScoredCandidate =
       capabilityFilteredTools.find((tool) => tool.score > 0) !== undefined;
 
-    const bestCandidates = hasScoredCandidate
+    const scoredCandidates = hasScoredCandidate
       ? capabilityFilteredTools
           .filter((tool) => tool.score > 0)
           .sort((a, b) => b.score - a.score)
       : discoveredTools;
+
+    const bestCandidates = hasScoredCandidate
+      ? this.filterByRelevanceFloor(scoredCandidates)
+      : scoredCandidates;
 
     const relevantTools = budgetTools(bestCandidates);
 
@@ -404,6 +408,18 @@ export class PlanningService {
     });
 
     return { relevantTools, llmTools, toolIndex };
+  }
+
+  private filterByRelevanceFloor<T extends { score: number }>(
+    sortedCandidates: T[],
+  ): T[] {
+    const RELEVANCE_FLOOR_RATIO = 0.5;
+
+    const topScore = sortedCandidates[0]?.score ?? 0;
+
+    const floor = topScore * RELEVANCE_FLOOR_RATIO;
+
+    return sortedCandidates.filter((candidate) => candidate.score >= floor);
   }
 
   private strongCapabilityMatches(
@@ -428,9 +444,17 @@ export class PlanningService {
 
     if (isUuid(message)) return [];
 
+    if (!relevantTools.length) return [];
+
+    const topServerId = relevantTools.reduce((best, tool) =>
+      tool.score > best.score ? tool : best,
+    ).entry.server.id;
+
     const candidates: { tool: DiscoveredTool; field: string }[] = [];
 
     for (const tool of relevantTools) {
+      if (tool.entry.server.id !== topServerId) continue;
+
       const resolved = resolveArgsFromEntities(tool.entry, entities).args;
 
       const field = declaredInputs(tool).find((candidateField: string) => {
@@ -502,7 +526,7 @@ export class PlanningService {
   private buildSystemPrompt(servers: McpServerType[]): string {
     const connectedComponents = servers.map((server) => server.name).join(", ");
 
-    return `${PLANNING_PROMPTS.SYSTEM} Connected components in this project: ${connectedComponents}. Use only the exposed tools from these components.`;
+    return `${PLANNING_PROMPTS.SYSTEM} The current date and time is ${new Date().toISOString()} - use this as "now" for any relative date or time range in the request. Connected components in this project: ${connectedComponents}. Use only the exposed tools from these components.`;
   }
 
   private translateLlmError(

@@ -198,6 +198,15 @@ const jsonType = (type?: string): "number" | "boolean" | "string" => {
   return "string";
 };
 
+const resolveEnvInText = (text: string): string =>
+  text.replace(/\$\{([A-Za-z0-9_]+)\}/g, (_, key) => {
+    const value = process.env[key];
+
+    if (!value) throw new Error(`Template references ${key} but it is not set`);
+
+    return value;
+  });
+
 const fillTemplate = (
   template: unknown,
   args: Record<string, any>,
@@ -218,7 +227,7 @@ const fillTemplate = (
       usedKeys.add(name);
     }
 
-    return filled;
+    return resolveEnvInText(filled);
   }
 
   if (Array.isArray(template)) {
@@ -508,7 +517,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       verb,
       (request.params.arguments || {}) as Record<string, any>,
     );
-    const text = `HTTP ${result.status}\n${result.url}\n\n${result.body}`;
+
+    const needsPermissionHint =
+      !result.ok &&
+      (result.status === 401 || result.status === 403) &&
+      verb.permissionHint;
+
+    const text = [
+      `HTTP ${result.status}`,
+      result.url,
+      "",
+      result.body,
+      ...(needsPermissionHint
+        ? ["", `Likely missing permission: ${verb.permissionHint}`]
+        : []),
+    ].join("\n");
 
     return {
       ...(result.ok ? {} : { isError: true }),

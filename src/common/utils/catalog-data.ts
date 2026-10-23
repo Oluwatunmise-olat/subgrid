@@ -104,17 +104,6 @@ export const INTEGRATIONS: CatalogIntegration[] = [
     "fields": []
   },
   {
-    "id": "cloudflare-full",
-    "official": true,
-    "name": "Cloudflare",
-    "category": "paas",
-    "description": "DNS, R2, Workers, zones — Cloudflare's official hosted server (sign in with Cloudflare)",
-    "transport": "http",
-    "url": "https://mcp.cloudflare.com/mcp",
-    "oauth": true,
-    "fields": []
-  },
-  {
     "id": "sanity",
     "official": true,
     "name": "Sanity",
@@ -208,10 +197,10 @@ export const BRIDGE_PRESETS: BridgePreset[] = [
   {
     "id": "cloudflare-dns",
     "kind": "rest",
-    "name": "Cloudflare DNS",
+    "name": "Cloudflare Zone",
     "category": "dns",
     "provider": "cloudflare-dns",
-    "description": "List, create, update and delete DNS records in one zone",
+    "description": "Manage DNS records, zone settings, WAF custom rules, and analytics for one zone",
     "docs": "https://developers.cloudflare.com/api/resources/dns/",
     "baseUrl": "https://api.cloudflare.com",
     "auth": {
@@ -223,8 +212,8 @@ export const BRIDGE_PRESETS: BridgePreset[] = [
         "key": "CLOUDFLARE_API_TOKEN",
         "label": "API token",
         "type": "password",
-        "placeholder": "scoped to Zone → DNS → Edit",
-        "help": "Cloudflare → My Profile → API Tokens → Create Token → Edit zone DNS. Scope it to one zone, not the account."
+        "placeholder": "scoped to one zone",
+        "help": "Cloudflare → My Profile → API Tokens → Create Token. Scope it to one zone with these permission groups: DNS Edit, Zone Settings Edit, Firewall Services Edit, Zone Analytics Read."
       },
       {
         "key": "CLOUDFLARE_ZONE_ID",
@@ -248,13 +237,15 @@ export const BRIDGE_PRESETS: BridgePreset[] = [
             "type": "number",
             "in": "query"
           }
-        }
+        },
+        "permissionHint": "Zone → DNS → Edit (or Read)"
       },
       {
         "name": "list_dns_records",
         "method": "GET",
         "path": "/client/v4/zones/${CLOUDFLARE_ZONE_ID}/dns_records",
         "description": "List DNS records for a domain in the configured zone",
+        "permissionHint": "Zone → DNS → Edit (or Read)",
         "params": {
           "type": {
             "in": "query"
@@ -276,6 +267,7 @@ export const BRIDGE_PRESETS: BridgePreset[] = [
         "method": "POST",
         "path": "/client/v4/zones/${CLOUDFLARE_ZONE_ID}/dns_records",
         "description": "Create a DNS record for a domain",
+        "permissionHint": "Zone → DNS → Edit",
         "params": {
           "type": {
             "in": "body",
@@ -336,6 +328,7 @@ export const BRIDGE_PRESETS: BridgePreset[] = [
         "method": "PATCH",
         "path": "/client/v4/zones/${CLOUDFLARE_ZONE_ID}/dns_records/{record_id}",
         "description": "Update one DNS record",
+        "permissionHint": "Zone → DNS → Edit",
         "params": {
           "record_id": {
             "description": "record id from list_dns_records"
@@ -361,9 +354,166 @@ export const BRIDGE_PRESETS: BridgePreset[] = [
         "method": "DELETE",
         "path": "/client/v4/zones/${CLOUDFLARE_ZONE_ID}/dns_records/{record_id}",
         "description": "Delete one DNS record",
+        "permissionHint": "Zone → DNS → Edit",
         "params": {
           "record_id": {
             "description": "record id from list_dns_records"
+          }
+        }
+      },
+      {
+        "name": "get_zone_setting",
+        "method": "GET",
+        "path": "/client/v4/zones/${CLOUDFLARE_ZONE_ID}/settings/{setting}",
+        "description": "Read one zone setting's current value. For Bot Fight Mode use get_bot_management instead - it is not a plain zone setting.",
+        "permissionHint": "Zone → Zone Settings → Edit (or Read)",
+        "params": {
+          "setting": {
+            "description": "e.g. security_level, ssl, always_use_https",
+            "enum": [
+              "security_level",
+              "ssl",
+              "always_use_https",
+              "automatic_https_rewrites",
+              "browser_cache_ttl",
+              "cache_level",
+              "development_mode",
+              "min_tls_version",
+              "waf",
+              "email_obfuscation",
+              "hotlink_protection",
+              "ip_geolocation",
+              "websockets"
+            ]
+          }
+        }
+      },
+      {
+        "name": "update_zone_setting",
+        "method": "PATCH",
+        "path": "/client/v4/zones/${CLOUDFLARE_ZONE_ID}/settings/{setting}",
+        "description": "Change one zone setting. For Bot Fight Mode use update_bot_management instead - it is not a plain zone setting.",
+        "permissionHint": "Zone → Zone Settings → Edit",
+        "params": {
+          "setting": {
+            "description": "e.g. security_level, ssl, always_use_https",
+            "enum": [
+              "security_level",
+              "ssl",
+              "always_use_https",
+              "automatic_https_rewrites",
+              "browser_cache_ttl",
+              "cache_level",
+              "development_mode",
+              "min_tls_version",
+              "waf",
+              "email_obfuscation",
+              "hotlink_protection",
+              "ip_geolocation",
+              "websockets"
+            ]
+          },
+          "value": {
+            "in": "body",
+            "required": true,
+            "description": "e.g. \"on\"/\"off\" for most toggle settings"
+          }
+        },
+        "requiresApproval": true
+      },
+      {
+        "name": "get_bot_management",
+        "method": "GET",
+        "path": "/client/v4/zones/${CLOUDFLARE_ZONE_ID}/bot_management",
+        "description": "Read this zone's bot management configuration, including Bot Fight Mode",
+        "permissionHint": "Zone → Bot Management → Edit (or Read)"
+      },
+      {
+        "name": "update_bot_management",
+        "method": "PUT",
+        "path": "/client/v4/zones/${CLOUDFLARE_ZONE_ID}/bot_management",
+        "description": "Turn Bot Fight Mode on or off for this zone, or change other bot management settings",
+        "permissionHint": "Zone → Bot Management → Edit",
+        "params": {
+          "fight_mode": {
+            "type": "boolean",
+            "in": "body",
+            "description": "Bot Fight Mode - true to turn on, false to turn off"
+          }
+        },
+        "requiresApproval": true
+      },
+      {
+        "name": "list_waf_rules",
+        "method": "GET",
+        "path": "/client/v4/zones/${CLOUDFLARE_ZONE_ID}/firewall/rules",
+        "description": "List WAF custom rules for this zone",
+        "permissionHint": "Zone → Firewall Services → Edit (or Zone WAF, or an Account API Token - the legacy Firewall Rules API's exact scoped-token permission varies by account)"
+      },
+      {
+        "name": "create_waf_rule",
+        "method": "POST",
+        "path": "/client/v4/zones/${CLOUDFLARE_ZONE_ID}/firewall/rules",
+        "description": "Create a WAF custom rule that blocks, challenges, or logs requests matching an expression",
+        "permissionHint": "Zone → Firewall Services → Edit (or Zone WAF, or an Account API Token - the legacy Firewall Rules API's exact scoped-token permission varies by account)",
+        "bodyArray": true,
+        "body_template": {
+          "action": "{action}",
+          "description": "{description}",
+          "filter": {
+            "expression": "{expression}"
+          }
+        },
+        "params": {
+          "action": {
+            "in": "body",
+            "required": true,
+            "enum": ["block", "challenge", "js_challenge", "log", "allow"]
+          },
+          "expression": {
+            "in": "body",
+            "required": true,
+            "description": "Cloudflare Wirefilter expression, e.g. (http.request.uri.path eq \"/.env\")"
+          },
+          "description": {
+            "in": "body",
+            "description": "human-readable rule name"
+          }
+        },
+        "requiresApproval": true
+      },
+      {
+        "name": "delete_waf_rule",
+        "method": "DELETE",
+        "path": "/client/v4/zones/${CLOUDFLARE_ZONE_ID}/firewall/rules/{rule_id}",
+        "description": "Delete one WAF custom rule",
+        "permissionHint": "Zone → Firewall Services → Edit (or Zone WAF, or an Account API Token - the legacy Firewall Rules API's exact scoped-token permission varies by account)",
+        "params": {
+          "rule_id": {
+            "description": "rule id from list_waf_rules"
+          }
+        },
+        "requiresApproval": true
+      },
+      {
+        "name": "get_zone_analytics",
+        "method": "POST",
+        "path": "/client/v4/graphql",
+        "description": "Get total requests, cached requests, and bandwidth for this zone over a date range, via Cloudflare's GraphQL Analytics API",
+        "permissionHint": "Zone → Zone Analytics → Read",
+        "body_template": {
+          "query": "query { viewer { zones(filter: {zoneTag: \"${CLOUDFLARE_ZONE_ID}\"}) { httpRequests1dGroups(limit: 31, filter: {date_geq: \"{since}\", date_leq: \"{until}\"}) { sum { requests cachedRequests bytes threats } dimensions { date } } } } }"
+        },
+        "params": {
+          "since": {
+            "in": "body",
+            "required": true,
+            "description": "start date, YYYY-MM-DD, e.g. 2026-10-22"
+          },
+          "until": {
+            "in": "body",
+            "required": true,
+            "description": "end date, YYYY-MM-DD, e.g. 2026-10-23"
           }
         }
       }

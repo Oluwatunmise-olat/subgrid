@@ -14,12 +14,15 @@ import {
 
 const OPERATIONS = [...WRITE_OPERATIONS, ...READ_OPERATIONS];
 
-const inferOperation = (text: string) => {
-  const words = tokenize(text).map(singularize);
+const normalizePhrasing = (text: string): string =>
+  text.replace(/\bturn\s+on\b/gi, "enable").replace(/\bturn\s+off\b/gi, "disable");
+
+const inferOperation = (text: string): string | null => {
+  const words = tokenize(normalizePhrasing(text)).map(singularize);
 
   return (
-    OPERATIONS.find((operation) => words.includes(singularize(operation))) ||
-    "execute"
+    OPERATIONS.find((operation) => words.includes(singularize(operation))) ??
+    null
   );
 };
 
@@ -62,7 +65,9 @@ export const inferToolCapability = (
 ): ToolCapability => {
   const text = `${toolName} ${description}`;
 
-  const operation = inferOperation(text);
+  const matchedOperation = inferOperation(text);
+
+  const operation = matchedOperation ?? "execute";
 
   const target = inferTarget(text);
 
@@ -72,7 +77,8 @@ export const inferToolCapability = (
     resource: inferResource(server, text),
     operation,
     target,
-    readOnly: !WRITE_OPERATIONS.includes(operation),
+    readOnly:
+      matchedOperation !== null && !WRITE_OPERATIONS.includes(matchedOperation),
     requiredInputs,
   };
 };
@@ -89,7 +95,7 @@ export const writeOperationFamily = (operation: string): string | null =>
 export const inferRequestCapability = (message: string) => {
   const lower = message.toLowerCase();
 
-  const operation = inferOperation(lower);
+  const operation = inferOperation(lower) ?? "execute";
 
   const target = inferTarget(lower);
 
