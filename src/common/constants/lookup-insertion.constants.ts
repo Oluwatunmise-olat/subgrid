@@ -11,3 +11,11 @@ export const FILTER_PARAMS = [
   "hostname",
   "recipient",
 ];
+
+export const SENTINEL_ID_VALUES = new Set([
+  "latest",
+  "current",
+  "newest",
+  "default",
+  "recent",
+]);

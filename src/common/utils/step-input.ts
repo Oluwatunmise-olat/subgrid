@@ -80,7 +80,10 @@ const readKey = (current: Record<string, unknown>, key: string): unknown => {
   if (key in current) return current[key];
 
   // e.g. "database_id" -> current.id
-  if (/(_id|_uuid)$/i.test(key) && "id" in current) return current.id;
+  if (/(_id|_uuid)$/i.test(key)) {
+    if ("id" in current) return current.id;
+    if ("uid" in current) return current.uid;
+  }
 
   if (key === "id" && !("id" in current)) {
     // e.g. { database_id: "x" } -> current.database_id
@@ -107,6 +110,10 @@ const readPath = (value: unknown, path: string): unknown => {
     const filterValue = match?.[3];
 
     if (key === "result" && Array.isArray(current)) {
+    } else if (key === "result" && isObject(current)) {
+      const arrayValue = Object.values(current).find((v) => Array.isArray(v));
+
+      if (arrayValue !== undefined) current = arrayValue;
     } else if (Array.isArray(current)) {
       current = /^\d+$/.test(key) ? current[Number(key)] : undefined;
     } else if (isObject(current)) {

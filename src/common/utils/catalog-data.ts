@@ -1433,6 +1433,24 @@ export const BRIDGE_PRESETS: BridgePreset[] = [
       }
     },
     {
+      "name": "promote_deployment",
+      "method": "POST",
+      "path": "/v10/projects/{project_id}/promote/{deployment_id}",
+      "description": "Promote an existing deployment to production",
+      "requiresApproval": true,
+      "params": {
+        "project_id": {
+          "description": "project id or name"
+        },
+        "deployment_id": {
+          "description": "deployment uid to promote"
+        },
+        "teamId": {
+          "in": "query"
+        }
+      }
+    },
+    {
       "name": "delete_deployment",
       "method": "DELETE",
       "path": "/v13/deployments/{id}",
@@ -1480,7 +1498,7 @@ export const BRIDGE_PRESETS: BridgePreset[] = [
       }
     }
   ],
-  "limits": "Lists, cancels and deletes \u2014 but does not create deployments. Vercel's create endpoint takes a project, files or a git source in its body, which is not something to model blind from the reference."
+  "limits": "Lists, cancels, deletes and promotes an existing deployment \u2014 but does not create deployments. Vercel's create endpoint takes a project, files or a git source in its body, which is not something to model blind from the reference."
 },
 {
   "id": "zeptomail",

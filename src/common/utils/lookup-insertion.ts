@@ -5,13 +5,14 @@ import {
   ID_FIELD,
   ID_INPUT,
   READ_TOOL,
+  SENTINEL_ID_VALUES,
 } from "@/common/constants/lookup-insertion.constants";
 
 export const namedResourceIn = (message: string): string | null => {
   // matches version strings ("v18.20.8"), IP addresses ("192.168.1.1"), hyphen words ("end-to-end"), "trysubgrid.com"
   const NAMED_RESOURCE_PATTERNS = [
     /\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\b/i, // e.g. ""trysubgrid.com"
-    /\b[a-z0-9]+(?:-[a-z0-9]+){2,}\b/i, // e.g. ""trysubgrid-app-production"
+    /\b[a-z0-9]+(?:-[a-z0-9]+){1,}\b/i, // e.g. "trysubgrid-app-production"
   ];
 
   for (const pattern of NAMED_RESOURCE_PATTERNS) {
@@ -44,7 +45,8 @@ const isFilled = (value: unknown) =>
   value !== undefined &&
   value !== null &&
   value !== "" &&
-  referencedStepIndexes(value).length === 0;
+  referencedStepIndexes(value).length === 0 &&
+  !(typeof value === "string" && SENTINEL_ID_VALUES.has(value.toLowerCase()));
 
 export const insertMissingLookups = <T extends LookupStep>(
   steps: T[],
