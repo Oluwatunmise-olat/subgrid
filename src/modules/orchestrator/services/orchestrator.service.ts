@@ -20,6 +20,7 @@ import {
 } from "@/common/utils/tool-policy";
 import { CatalogService } from "@/modules/catalog/services/catalog.service";
 import { looksLikeError } from "@/common/utils/result-normalizer";
+import { buildExecToolCall, isExecWrappedTool } from "@/common/utils/tool-exec-bridge";
 
 @injectable()
 export class OrchestratorService {
@@ -136,15 +137,14 @@ export class OrchestratorService {
 
     let failure: BadRequestError | null = null;
 
+    const call = isExecWrappedTool(server, toolName)
+      ? buildExecToolCall(server, toolName, input)
+      : { name: toolName, arguments: input };
+
     try {
-      const result = await client.callTool(
-        {
-          name: toolName,
-          arguments: input,
-        },
-        undefined,
-        { timeout: this.MCP_TOOL_TIMEOUT_MS },
-      );
+      const result = await client.callTool(call, undefined, {
+        timeout: this.MCP_TOOL_TIMEOUT_MS,
+      });
 
       const raw = this.resultText(result);
 

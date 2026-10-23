@@ -98,9 +98,98 @@ Once this is in the catalog, registering it is `{ "integration_id": "notion" }`
 plus the same `POST .../oauth/authorize` handshake any OAuth-gated server
 uses — see the Linear example below for that flow end to end.
 
+## A skills-first, exec-wrapped server: PostHog's hosted MCP
+
+PostHog's hosted server (`https://mcp.posthog.com/mcp`) is OAuth-gated like
+Notion above, so the catalog entry is the same shape:
+
+```ts
+{
+  id: "posthog",
+  official: true,
+  name: "PostHog",
+  category: "analytics",
+  description: "Query events, insights and HogQL, and manage feature flags and annotations in one PostHog project",
+  transport: "http",
+  url: "https://mcp.posthog.com/mcp",
+  oauth: true,
+  fields: [],
+}
+```
+
+The difference is seen once connected: `listTools()` returns exactly one tool, `exec`, which takes a CLI-style `command`
+string and internally fans out to PostHog's full platform (700+ real
+operations). See [`concepts.md`](concepts.md#skills-first-servers-when-one-tool-wraps-hundreds)
+for why the planner can't use that directly. The fix is a curated entry in
+`src/common/constants/exec-tool-catalog.ts`:
+
+```ts
+export const EXEC_WRAPPED_PROVIDERS: Record<string, ExecWrappedProvider> = {
+  posthog: {
+    wrapperToolName: "exec", // the one real tool PostHog's manifest exposes - not assumed for other providers
+    // PostHog's own CLI grammar and required args - a different provider's
+    // wrapper tool will want a completely different shape here.
+    buildCallArguments: (toolName, input) => ({
+      command: `call --json ${toolName} ${JSON.stringify(input ?? {})}`,
+      context: `Running "${toolName}" on behalf of a connected Subgrid request.`,
+      llm_model: "subgrid-orchestrator",
+    }),
+    tools: [
+      {
+        name: "execute-sql",
+        description:
+          "Run a read-only HogQL (PostHog's SQL) query against this PostHog project - pageviews, events, visitors, unique users, sessions, feature flags, funnels, breakdowns, joins, or any other ad-hoc analytics question about your product data.",
+        schema: {
+          type: "object",
+          required: ["query"],
+          properties: {
+            query: {
+              type: "string",
+              description:
+                'The HogQL SELECT query to run. Nearly everything lives in the "events" table ... [schema facts + worked examples go here]',
+            },
+          },
+        },
+      },
+    ],
+  },
+};
+```
+
+Both the tool `name` and its `schema` were taken from the server's own
+`info --json execute-sql` response. `wrapperToolName` matters because
+`expandExecWrappedTools()` only triggers when the live manifest's single
+tool matches it, and `buildExecToolCall()` dispatches to it by name.
+`buildCallArguments` matters because PostHog's `call --json <tool> <json>`
+CLI string and its `command`/`context`/`llm_model` fields are PostHog's own
+protocol, not a standard — `tool-exec-bridge.ts` never constructs this
+shape itself, it just calls whatever function the provider gave it. A
+future provider whose wrapper tool isn't called `exec`, or wants a
+completely different argument shape, just needs its own
+`wrapperToolName`/`buildCallArguments` here; nothing in
+`tool-exec-bridge.ts` changes.
+
+- The top-level `description` needs to overlap with how someone actually
+  phrases a question ("pageviews", "visitors"), not just the vendor's own
+  terminology ("HogQL", "ClickHouse-flavored") — `relevanceScore()` is plain
+  keyword overlap, so jargon-only descriptions lose to unrelated tools that
+  happen to share a stray word with the user's message.
+- The `query` field's description had to spell out that PostHog has no
+  `pageviews`/`users` tables — everything is rows in `events` — because the
+  planner is one-shot and will never call the server's own `info`/`schema`
+  commands to find that out itself. Without it, the LLM wrote plausible but
+  nonexistent-table SQL that failed at execution time, not at planning
+  time.
+
+To add a second curated tool here (or a new provider that uses the same
+`exec`-wrapper pattern), repeat the same two steps against the live server:
+confirm the manifest really is the single wrapper tool, then pull the real
+tool name and schema from its own `info`/`schema` commands before adding an
+entry — never hand-write a schema for a server you haven't actually called.
+
 ## Registering a server directly (not a catalog contribution at all)
 
-The two sections above are about *contributing* a reusable entry to this
+The two sections above are about _contributing_ a reusable entry to this
 repo. You don't need any of that to connect a specific server to your own
 instance right now — `POST /api/v1/mcp-servers`
 (`src/modules/mcp-registry/`) takes a server directly, with no
@@ -110,7 +199,7 @@ to find one you already have).
 
 ### A community `stdio` package, registered ad hoc (never touches the catalog)
 
-Reusing the GitHub server from above, but *without* adding it to
+Reusing the GitHub server from above, but _without_ adding it to
 `catalog-data.ts` first — you'd do this for literally any `npx`-installable
 MCP server you want to try once, following whatever its own README
 documents for the command/env vars:

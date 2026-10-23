@@ -3,6 +3,7 @@ export const INTEGRATION_KEYWORDS: Record<string, string[]> = {
 	'resend-oauth': ['email', 'mail', 'transactional', 'receipt'],
 	'cloudflare-full': ['cloudflare', 'dns', 'domain', 'edge', 'cdn', 'worker', 'workers', 'waf', 'static site'],
 	sanity: ['content', 'cms', 'blog', 'editorial', 'dataset', 'media library', 'headless cms'],
+	posthog: ['posthog', 'analytics', 'product analytics', 'events', 'feature flag', 'feature flags', 'funnel', 'funnels', 'insights', 'hogql', 'a/b test', 'experiment', 'experiments'],
 };
 
 export const PRESET_KEYWORDS: Record<string, string[]> = {
@@ -29,6 +30,7 @@ export const CAPABILITY: Record<string, string> = {
 	vercel: 'frontend-hosting',
 	zeptomail: 'send-email-alt',
 	sanity: 'content',
+	posthog: 'product-analytics',
 };
 
 export const MAX_SUGGESTIONS = 10;

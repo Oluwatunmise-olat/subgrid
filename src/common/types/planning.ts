@@ -89,3 +89,18 @@ export type DiscoveredTool = {
   spec: LlmToolSpec;
   score: number;
 };
+
+export type ExecCatalogTool = {
+  name: string;
+  description: string;
+  schema: Record<string, any>;
+};
+
+export type ExecWrappedProvider = {
+  wrapperToolName: string;
+  tools: ExecCatalogTool[];
+  buildCallArguments: (
+    toolName: string,
+    input: Record<string, any>,
+  ) => Record<string, any>;
+};

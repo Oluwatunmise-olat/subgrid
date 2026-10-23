@@ -4,6 +4,7 @@ import { filterTools } from "@/common/utils/tool-policy";
 import { CachedToolEntry } from "@/common/types/planning";
 import { CacheEntry, ToolManifestMeta } from "@/common/types/tool-manifest";
 import { inferToolCapability } from "./tool-capability";
+import { expandExecWrappedTools } from "./tool-exec-bridge";
 
 const MANIFEST_TTL_MS = 5 * 60 * 1000;
 const RETRY_DELAY_MS = 30 * 1000;
@@ -82,7 +83,7 @@ const loadManifest = async (
 
   if (loadError) throw loadError;
 
-  return tools!;
+  return expandExecWrappedTools(server, tools!);
 };
 
 const buildCacheEntry = (tools: CachedToolEntry[]): CacheEntry => {

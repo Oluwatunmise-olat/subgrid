@@ -21,6 +21,7 @@ export const CATEGORY_LABELS: Record<CatalogCategory, string> = {
   "dns": "DNS / Edge",
   "email": "Email",
   "database": "Database",
+  "analytics": "Analytics",
   "other": "Other"
 };
 
@@ -121,6 +122,17 @@ export const INTEGRATIONS: CatalogIntegration[] = [
     "description": "Content ops via Sanity's official hosted MCP (sign in with Sanity)",
     "transport": "http",
     "url": "https://mcp.sanity.io",
+    "oauth": true,
+    "fields": []
+  },
+  {
+    "id": "posthog",
+    "official": true,
+    "name": "PostHog",
+    "category": "analytics",
+    "description": "PostHog's official hosted MCP server — sign in with PostHog, no API key to paste",
+    "transport": "http",
+    "url": "https://mcp.posthog.com/mcp",
     "oauth": true,
     "fields": []
   },
