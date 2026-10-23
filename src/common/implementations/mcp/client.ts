@@ -43,7 +43,6 @@ const SAFE_ENV_KEYS = [
 
 const SAFE_ENV_PREFIXES = ["NODE_", "NPM_", "npm_", "XDG_", "LC_"];
 
-// e.g. ["--email", "${UPSTASH_EMAIL}", "--api-key", "${UPSTASH_API_KEY}"] -> ["UPSTASH_EMAIL", "UPSTASH_API_KEY"]
 const referencedKeys = (argv: string[]): string[] => {
   const keys = new Set<string>();
 
@@ -99,7 +98,6 @@ export const connectToMcpServer = async (
         fromCatalog?.args ?? server.args,
       );
 
-      // Some MCP packages take credentials as CLI flags, not env vars (e.g. @upstash/mcp-server's --email/--api-key)
       const missingArgKeys = referencedKeys(resolved.args).filter(
         (key) => !secrets.env?.[key],
       );

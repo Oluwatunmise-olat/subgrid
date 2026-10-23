@@ -16,13 +16,14 @@ import { McpServerType } from "@/models/mcp-server.model";
 import { OrchestratorService } from "@/modules/orchestrator/services/orchestrator.service";
 import { normalizeToolResult } from "@/common/utils/result-normalizer";
 import { UpdateWorkflowDto } from "../dto/validation.dto";
-import { PlannedStep } from "@/common/types/workflow";
+import { PlannedStep, SelectionOption } from "@/common/types/workflow";
 import {
   EDITABLE_STATUSES,
   EXECUTABLE_STATUSES,
   TERMINAL_STATUSES,
 } from "@/common/constants/workflow-runtime.constants";
 import {
+  pendingSelection,
   referencedStepIndexes,
   resolveStepInput,
 } from "@/common/utils/step-input";
@@ -242,6 +243,50 @@ export class WorkflowRuntimeService {
     return this.getWorkflow(workflowId);
   }
 
+  public async resolveStepSelection(
+    workflowId: string,
+    stepId: string,
+    value: string,
+  ) {
+    const step = (await this.workflowStepsRepository.getById(
+      stepId,
+    )) as unknown as WorkflowStepType;
+
+    if (!step || step.workflow_id !== workflowId) {
+      throw new NotFoundError("Step not found");
+    }
+
+    const selection = pendingSelection(step.input);
+
+    if (!selection) {
+      throw new BadRequestError(
+        "This step has no pending selection to resolve",
+      );
+    }
+
+    const offered = (step.selection_options || []).find(
+      (option) => option.value === value,
+    );
+
+    if (!offered) {
+      throw new BadRequestError("That value is not one of the offered options");
+    }
+
+    await this.workflowStepsRepository.update(
+      { id: stepId },
+      {
+        input: { ...step.input, [selection.field]: value },
+        selection_options: null,
+      },
+    );
+
+    const workflow = await this.getWorkflowOrThrow(workflowId);
+
+    await this.runSteps(workflowId, workflow.execution_mode, true);
+
+    return this.getWorkflow(workflowId);
+  }
+
   private async getWorkflowOrThrow(id: string) {
     const workflow = await this.workflowsRepository.getById(id);
 
@@ -268,6 +313,86 @@ export class WorkflowRuntimeService {
     });
   }
 
+  private async populatePendingSelections(
+    producerStep: WorkflowStepType,
+    producerOutput: Record<string, any>,
+  ) {
+    const steps = await this.workflowStepsRepository.findByWorkflow(
+      producerStep.workflow_id,
+    );
+
+    const producerIndex = steps.findIndex((s) => s.id === producerStep.id) + 1;
+
+    if (!producerIndex) return;
+
+    const dependents = steps.filter(
+      (s) => pendingSelection(s.input)?.stepIndex === producerIndex,
+    );
+
+    if (!dependents.length) return;
+
+    let items: unknown;
+
+    try {
+      items = resolveStepInput(
+        `{{step${producerIndex}.result}}`,
+        () => producerOutput,
+      );
+    } catch {
+      return;
+    }
+
+    if (!Array.isArray(items)) return;
+
+    for (const dependent of dependents) {
+      const field = pendingSelection(dependent.input)!.field;
+
+      const options = this.optionsFromItems(items, field);
+
+      if (options.length) {
+        await this.workflowStepsRepository.update(
+          { id: dependent.id },
+          { selection_options: options },
+        );
+      }
+    }
+  }
+
+  private optionsFromItems(
+    items: unknown[],
+    valueField: string,
+  ): SelectionOption[] {
+    const labelFields = [
+      valueField.replace(/(_id|_uuid)$/i, "_name"),
+      "name",
+      "title",
+      "label",
+    ];
+
+    const options: SelectionOption[] = [];
+
+    for (const item of items) {
+      if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+
+      const record = item as Record<string, unknown>;
+
+      const value = record[valueField] ?? record.id;
+
+      if (value === undefined || value === null || value === "") continue;
+
+      const label = labelFields
+        .map((field) => record[field])
+        .find((candidate) => typeof candidate === "string");
+
+      options.push({
+        label: typeof label === "string" ? label : String(value),
+        value: String(value),
+      });
+    }
+
+    return options;
+  }
+
   private async grantStandingApproval(step: WorkflowStepType) {
     const server = (await this.mcpServersRepository.getById(
       step.server_id,
@@ -288,6 +413,10 @@ export class WorkflowRuntimeService {
   }
 
   private async runOneStep(step: WorkflowStepType, approved: boolean) {
+    if (pendingSelection(step.input)) {
+      return "awaiting_selection" as const;
+    }
+
     const server = (await this.mcpServersRepository.getById(
       step.server_id,
     )) as unknown as McpServerType | undefined;
@@ -360,6 +489,13 @@ export class WorkflowRuntimeService {
         },
       );
 
+      if (!stepFailed) {
+        await this.populatePendingSelections(
+          step,
+          structuredResult as unknown as Record<string, any>,
+        );
+      }
+
       return stepFailed ? ("failed" as const) : ("succeeded" as const);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -422,13 +558,23 @@ export class WorkflowRuntimeService {
       for (const step of sequentialRest) {
         const outcome = await this.runOneStep(step, approved);
 
-        if (outcome === "failed" || outcome === "awaiting_approval") break;
+        if (
+          outcome === "failed" ||
+          outcome === "awaiting_approval" ||
+          outcome === "awaiting_selection"
+        )
+          break;
       }
     } else {
       for (const step of runnable) {
         const outcome = await this.runOneStep(step, approved);
 
-        if (outcome === "failed" || outcome === "awaiting_approval") break;
+        if (
+          outcome === "failed" ||
+          outcome === "awaiting_approval" ||
+          outcome === "awaiting_selection"
+        )
+          break;
       }
     }
 
