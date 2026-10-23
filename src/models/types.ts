@@ -1,6 +1,6 @@
 export type McpTransport = 'stdio' | 'sse' | 'http';
 export type McpHealth = 'unknown' | 'healthy' | 'unreachable';
-export type ResourceCategory = 'storage' | 'paas' | 'dns' | 'email' | 'database' | 'other';
+export type ResourceCategory = 'storage' | 'paas' | 'dns' | 'email' | 'database' | 'analytics' | 'other';
 export type McpApprovalPolicy = 'auto' | 'prompt' | 'always';
 export type McpToolFilter = { include?: string[]; exclude?: string[] } | null;
 export type McpServerSecrets = {

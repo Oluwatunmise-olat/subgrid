@@ -140,6 +140,14 @@ export const ROUTING_STOPWORDS = [
   "want",
   "can",
   "you",
+  "how",
+  "what",
+  "which",
+  "when",
+  "where",
+  "many",
+  "much",
+  "each",
 ];
 
 export const ENTITY_ARG_ALIASES: Record<keyof RequestEntities, string[]> = {

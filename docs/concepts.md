@@ -92,6 +92,61 @@ that gets resolved at spawn time. That's deliberate: it means the bridge
 implementation can move without needing a migration to fix up every
 already-registered server.
 
+## Skills-first servers: when one tool wraps hundreds
+
+Some hosted MCP servers (PostHog's is the first one in this codebase) don't
+expose one MCP tool per operation at all. Instead they expose a single
+tool — PostHog calls it `exec` — that takes a CLI-style `command` string
+(`help`, `tools`, `info <tool>`, `call --json <tool> <json-args>`, ...) and
+fans out internally to hundreds of real operations (PostHog's surface is
+700+ tool names: `execute-sql`, `query-trends`, `insight-create`, and so
+on). This is a "skills-first" design on the vendor's side — their server
+expects a client to discover before it acts — but it's useless to the
+planner as-is: a tool literally named `exec` with a free-text `command`
+field carries no name, description, or schema signal for the capability
+matching described above, and this planner has no iterative discover-then-call
+loop to spend on it.
+
+**Nothing vendor-specific is assumed for every provider that uses this
+pattern.** A different vendor adopting the same "skills-first single
+wrapper tool" design could name theirs anything, and almost certainly has a
+different protocol for actually invoking an operation through it — there's
+no standard here, PostHog invented its own CLI grammar (`call --json <tool>
+<json>`) and its own required argument shape (`command`, `context`,
+`llm_model`). Both the wrapper tool's name and how to build a call to it are
+therefore config, not constants: they live per provider in
+`EXEC_WRAPPED_PROVIDERS` itself, and `src/common/utils/tool-exec-bridge.ts`
+carries zero PostHog-specific knowledge.
+
+Subgrid bridges this with two files:
+
+- `src/common/constants/exec-tool-catalog.ts` — `EXEC_WRAPPED_PROVIDERS`, a
+  plain map from catalog `provider` id to
+  `{ wrapperToolName, buildCallArguments, tools }`: the server's single real
+  wrapper-tool name (`"exec"` for PostHog), a function that turns a clean
+  `(toolName, input)` pair into that server's own required argument shape,
+  and a **hand-picked allowlist** of the underlying tools actually worth
+  exposing, each with a real name, description, and JSON schema. Every
+  entry's schema must come from the live server itself (its own `info
+  --json <tool-name>` / `schema <tool-name>` commands), because a wrong
+  schema just produces a new, harder-to-diagnose class of failed calls.
+- `src/common/utils/tool-exec-bridge.ts` — `expandExecWrappedTools()` runs
+  at manifest-discovery time (`tool-manifest-cache.ts`): if a server's live
+  manifest really is just the single wrapper tool _and_ it has a curated
+  entry, swap that one entry for the curated list. From here on the
+  planner, relevance scoring, capability inference, tool filters, and the
+  approval gate all treat each curated tool exactly like any other discrete
+  MCP tool — none of that machinery needed to change.
+  `buildExecToolCall()` does the reverse translation at execution time
+  (`OrchestratorService.executeToolCall`), entirely by delegating to the
+  provider's own `wrapperToolName`/`buildCallArguments` — it doesn't know or
+  care what shape any given provider's wrapper tool actually wants. The
+  action log still records the clean tool name and input, not the wrapper's
+  internals.
+
+See [`examples.md`](examples.md#a-skills-first-exec-wrapped-server-posthogs-hosted-mcp)
+for a full worked example.
+
 ## Capabilities: how Subgrid knows what a tool does
 
 Every tool, whether it comes from a real MCP server or a bridge, gets
@@ -126,7 +181,7 @@ is the core pipeline. Roughly, in order:
    operational requests, scope to an explicitly-named component if one was
    mentioned, filter to tools whose capability resource overlaps the
    request.
-3. **Fast path** — if exactly one *read-only* tool clearly matches (high
+3. **Fast path** — if exactly one _read-only_ tool clearly matches (high
    confidence, every required argument resolvable from entities already in
    the message — a bucket name, a domain, a zone), skip the LLM entirely
    and call it directly. This is what makes "list my buckets" instant
@@ -195,13 +250,13 @@ through the API. See `src/modules/llm-settings/`.
 
 ## Data model
 
-| Table | What it's for |
-| --- | --- |
-| `projects` | A named grouping of connected components |
-| `mcp_servers` | A connected component — real MCP server, catalog integration, or bridge-backed preset. `catalog_id` links back to the catalog entry it came from, if any |
-| `oauth_connections` | PKCE/token state for an `mcp_servers` row connected via OAuth (one row per server) |
-| `workflows` / `workflow_steps` | A plan and its ordered steps |
-| `action_logs` | Immutable record of every tool call actually executed, with masked credentials |
-| `webauthn_credentials` | Registered passkeys |
-| `passkey_challenges` | Short-lived pending WebAuthn challenges (registration/approval), consumed on use |
-| `llm_settings` | The one instance-wide LLM provider/key, if configured |
+| Table                          | What it's for                                                                                                                                            |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `projects`                     | A named grouping of connected components                                                                                                                 |
+| `mcp_servers`                  | A connected component — real MCP server, catalog integration, or bridge-backed preset. `catalog_id` links back to the catalog entry it came from, if any |
+| `oauth_connections`            | PKCE/token state for an `mcp_servers` row connected via OAuth (one row per server)                                                                       |
+| `workflows` / `workflow_steps` | A plan and its ordered steps                                                                                                                             |
+| `action_logs`                  | Immutable record of every tool call actually executed, with masked credentials                                                                           |
+| `webauthn_credentials`         | Registered passkeys                                                                                                                                      |
+| `passkey_challenges`           | Short-lived pending WebAuthn challenges (registration/approval), consumed on use                                                                         |
+| `llm_settings`                 | The one instance-wide LLM provider/key, if configured                                                                                                    |

@@ -422,7 +422,11 @@ export class PlanningService {
       );
     }
 
-    if (singleStrongMatch) {
+    if (
+      singleStrongMatch &&
+      resolveArgsFromEntities(singleStrongMatch.entry, requestedCapability.entities)
+        .satisfied
+    ) {
       return this.singleToolResult(
         singleStrongMatch,
         requestedCapability.entities,
