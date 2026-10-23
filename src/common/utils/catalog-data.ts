@@ -137,6 +137,44 @@ export const INTEGRATIONS: CatalogIntegration[] = [
     "fields": []
   },
   {
+    "id": "upstash",
+    "official": true,
+    "name": "Upstash",
+    "category": "database",
+    "description": "Manage Upstash Redis, QStash and Workflow via Upstash's official MCP server",
+    "command": "npx",
+    "baseArgs": [
+      "-y",
+      "@upstash/mcp-server@latest",
+      "--email",
+      "${UPSTASH_EMAIL}",
+      "--api-key",
+      "${UPSTASH_API_KEY}"
+    ],
+    "fields": [
+      {
+        "key": "UPSTASH_EMAIL",
+        "label": "Account email",
+        "type": "text",
+        "help": "The email address on your Upstash account."
+      },
+      {
+        "key": "UPSTASH_API_KEY",
+        "label": "API key",
+        "type": "password",
+        "help": "Upstash Console → Account → API Keys. A readonly key disables state-modifying tools automatically."
+      }
+    ],
+    "docs": {
+      "label": "Upstash → Account → API Keys",
+      "url": "https://console.upstash.com/account/api"
+    },
+    "steps": [
+      "Upstash Console → Account → API Keys → create a key.",
+      "Use a readonly key unless this instance needs to create or change Upstash resources — the server disables write tools automatically for readonly keys."
+    ]
+  },
+  {
     "id": "bridge",
     "firstParty": true,
     "name": "Vendor API",

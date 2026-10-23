@@ -8,3 +8,8 @@ export type PlannedStep = {
   title?: string;
   intent?: string;
 };
+
+export type SelectionOption = {
+  label: string;
+  value: string;
+};

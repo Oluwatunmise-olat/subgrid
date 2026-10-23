@@ -75,7 +75,7 @@ export const WRITE_OPERATION_FAMILIES: Record<string, string> = {
 };
 
 export const TARGET_KEYWORDS: Array<[string, string[]]> = [
-  ["objects", ["object", "objects", "file", "files", "content", "contents", "key", "keys"]],
+  ["objects", ["object", "objects", "file", "files", "content", "contents"]],
   ["buckets", ["bucket", "buckets"]],
   ["records", ["record", "records", "dns", "zone", "zones"]],
   ["domains", ["domain", "domains", "project", "projects", "deployment", "deployments"]],

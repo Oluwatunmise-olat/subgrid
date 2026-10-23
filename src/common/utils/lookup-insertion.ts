@@ -1,22 +1,34 @@
 import { referencedStepIndexes } from "@/common/utils/step-input";
 import type { LookupStep, LookupTool } from "@/common/types/planning";
-import { FILTER_PARAMS, ID_FIELD, ID_INPUT, READ_TOOL } from "@/common/constants/lookup-insertion.constants";
+import {
+  FILTER_PARAMS,
+  ID_FIELD,
+  ID_INPUT,
+  READ_TOOL,
+} from "@/common/constants/lookup-insertion.constants";
 
-const hostnameIn = (message: string): string | null =>
-  (message.match(/\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\b/i) || [])[0] || null;
+export const namedResourceIn = (message: string): string | null => {
+  // matches version strings ("v18.20.8"), IP addresses ("192.168.1.1"), hyphen words ("end-to-end"), "trysubgrid.com"
+  const NAMED_RESOURCE_PATTERNS = [
+    /\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\b/i, // e.g. ""trysubgrid.com"
+    /\b[a-z0-9]+(?:-[a-z0-9]+){2,}\b/i, // e.g. ""trysubgrid-app-production"
+  ];
 
-const declaredInputs = (tool: LookupTool): string[] => {
-  const required = tool.entry.schema?.required;
+  for (const pattern of NAMED_RESOURCE_PATTERNS) {
+    const match = message.match(pattern);
+    if (match) return match[0];
+  }
 
-  if (Array.isArray(required) && required.length) return required;
-
-  return Object.keys(tool.entry.schema?.properties || {});
+  return null;
 };
 
-const resourceOf = (inputName: string) =>
+export const declaredInputs = (tool: LookupTool): string[] =>
+  Object.keys(tool.entry.schema?.properties || {});
+
+export const resourceOf = (inputName: string) =>
   inputName.replace(ID_INPUT, "").replace(/_/g, "").toLowerCase();
 
-const producesId = (tool: LookupTool, inputName: string) => {
+export const producesId = (tool: LookupTool, inputName: string) => {
   const name = tool.entry.toolName.toLowerCase();
 
   return READ_TOOL.test(name) && name.includes(resourceOf(inputName));
@@ -39,7 +51,7 @@ export const insertMissingLookups = <T extends LookupStep>(
   tools: ReadonlyArray<LookupTool>,
   message: string,
 ): T[] => {
-  const hostname = hostnameIn(message);
+  const named = namedResourceIn(message);
   const output: T[] = [];
 
   for (const step of steps) {
@@ -67,6 +79,11 @@ export const insertMissingLookups = <T extends LookupStep>(
 
       if (!producer) continue;
 
+      const filterParam = filterParamFor(producer);
+
+      const canFilterServerSide = Boolean(filterParam && named);
+      const canMatchByName = Boolean(named && !canFilterServerSide);
+
       const placed = output.findIndex(
         (existing) =>
           existing.server_id === producer.entry.server.id &&
@@ -76,10 +93,9 @@ export const insertMissingLookups = <T extends LookupStep>(
       let position = placed;
 
       if (position < 0) {
-        const filterParam = filterParamFor(producer);
         const args: Record<string, any> = {};
 
-        if (filterParam && hostname) args[filterParam] = hostname;
+        if (canFilterServerSide) args[filterParam!] = named;
 
         output.push({
           server_id: producer.entry.server.id,
@@ -93,7 +109,13 @@ export const insertMissingLookups = <T extends LookupStep>(
         position = output.length - 1;
       }
 
-      input[name] = `{{step${position + 1}.${ID_FIELD}}}`;
+      if (canFilterServerSide) {
+        input[name] = `{{step${position + 1}.${ID_FIELD}}}`;
+      } else if (canMatchByName) {
+        input[name] = `{{step${position + 1}.result[*=${named}].${name}}}`;
+      } else {
+        input[name] = `{{select:step${position + 1}}}`;
+      }
     }
 
     output.push({ ...step, input });

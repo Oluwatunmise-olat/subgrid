@@ -2,6 +2,7 @@ import { ModelObject } from 'objection';
 
 import BaseModel from './base.model';
 import type { WorkflowStepStatus } from './types';
+import type { SelectionOption } from '@/common/types/workflow';
 
 export class WorkflowStep extends BaseModel {
 	static tableName = 'workflow_steps';
@@ -20,9 +21,10 @@ export class WorkflowStep extends BaseModel {
 	output!: Record<string, any> | null;
 	error!: string | null;
 	action_log_id!: string | null;
+	selection_options!: SelectionOption[] | null;
 
 	static get jsonAttributes() {
-		return ['depends_on', 'capability', 'input', 'output'];
+		return ['depends_on', 'capability', 'input', 'output', 'selection_options'];
 	}
 }
 

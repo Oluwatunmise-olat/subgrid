@@ -35,18 +35,6 @@ export const resourceOverlap = (
   return [...requested].filter((token) => exposed.has(token));
 };
 
-export const actionOverlap = (message: string, toolName: string) => {
-  const requestedActions = tokenize(message).filter((token) =>
-    READ_OPERATIONS.includes(token),
-  );
-
-  const toolActions = tokenize(toolName).filter((token) =>
-    READ_OPERATIONS.includes(token),
-  );
-
-  return requestedActions.filter((action) => toolActions.includes(action));
-};
-
 export const isDocumentationRequest = (message: string) => {
   const lowerMessage = message.toLowerCase();
 

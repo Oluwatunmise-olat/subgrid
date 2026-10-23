@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 
 import { genericResponse } from "@/common/utils/http";
 import { WorkflowRuntimeService } from "./services/workflow-runtime.service";
-import { UpdateWorkflowDto } from "./dto/validation.dto";
+import { SelectStepOptionDto, UpdateWorkflowDto } from "./dto/validation.dto";
 
 @injectable()
 export class WorkflowController {
@@ -37,9 +37,8 @@ export class WorkflowController {
 
   public approve = async (request: Request, response: Response) => {
     const { workflow_id } = request.params;
-    const workflow = await this.workflowRuntimeService.approveWorkflow(
-      workflow_id,
-    );
+    const workflow =
+      await this.workflowRuntimeService.approveWorkflow(workflow_id);
 
     return genericResponse({
       response,
@@ -49,9 +48,8 @@ export class WorkflowController {
 
   public cancel = async (request: Request, response: Response) => {
     const { workflow_id } = request.params;
-    const workflow = await this.workflowRuntimeService.cancelWorkflow(
-      workflow_id,
-    );
+    const workflow =
+      await this.workflowRuntimeService.cancelWorkflow(workflow_id);
 
     return genericResponse({
       response,
@@ -61,13 +59,30 @@ export class WorkflowController {
 
   public execute = async (request: Request, response: Response) => {
     const { workflow_id } = request.params;
-    const workflow = await this.workflowRuntimeService.executeWorkflow(
-      workflow_id,
-    );
+
+    const workflow =
+      await this.workflowRuntimeService.executeWorkflow(workflow_id);
 
     return genericResponse({
       response,
       data: { status: true, message: "Workflow executed", data: { workflow } },
+    });
+  };
+
+  public selectStepOption = async (request: Request, response: Response) => {
+    const { workflow_id, step_id } = request.params;
+
+    const payload = request.body as SelectStepOptionDto;
+
+    const workflow = await this.workflowRuntimeService.resolveStepSelection(
+      workflow_id,
+      step_id,
+      payload.value,
+    );
+
+    return genericResponse({
+      response,
+      data: { status: true, message: "Selection resolved", data: { workflow } },
     });
   };
 

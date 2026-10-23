@@ -26,10 +26,15 @@ import {
 } from "@/common/utils/tool-capability";
 import { WorkflowRuntimeService } from "@/modules/workflows/services/workflow-runtime.service";
 import { stripUnavailableReferences } from "@/common/utils/step-input";
-import { insertMissingLookups } from "@/common/utils/lookup-insertion";
+import {
+  declaredInputs,
+  insertMissingLookups,
+  namedResourceIn,
+  producesId,
+} from "@/common/utils/lookup-insertion";
+import { ID_INPUT } from "@/common/constants/lookup-insertion.constants";
 import { budgetTools } from "@/common/utils/tool-budget";
 import {
-  actionOverlap,
   capabilityLabel,
   capabilityScore,
   isDocumentationRequest,
@@ -41,6 +46,7 @@ import {
   resourceTokens,
 } from "@/common/utils/tool-ranking";
 import { OPERATIONAL_INTENT } from "@/common/constants/tool-vocabulary";
+import { isUuid } from "@/common/utils/uuid";
 
 @injectable()
 export class PlanningService {
@@ -111,7 +117,6 @@ export class PlanningService {
     const { relevantTools, llmTools, toolIndex } = this.selectToolsForPlanner(
       resourceCandidates,
       discoveredTools,
-      message,
       requestedCapability,
     );
 
@@ -148,15 +153,45 @@ export class PlanningService {
     );
 
     if (!result) {
+      const namedCandidates = this.namedResourceCandidates(
+        relevantTools,
+        discoveredTools,
+        message,
+        requestedCapability.entities,
+      );
+
+      const narrowedTools =
+        namedCandidates.length > 1
+          ? namedCandidates.map((c) => c.tool.spec)
+          : llmTools;
+
+      const forceTool =
+        namedCandidates.length === 1
+          ? namedCandidates[0].tool.callName
+          : undefined;
+
       try {
         result = await this.openAIllmProcessor.planWithTools(
           this.buildSystemPrompt(servers),
           [...history, { role: "user", content: message }],
-          llmTools,
+          narrowedTools,
           llmOverride,
+          forceTool,
         );
       } catch (err) {
         throw this.translateLlmError(err, llmOverride);
+      }
+
+      if (namedCandidates.length) {
+        const clearField = new Map(
+          namedCandidates.map((c) => [c.tool.callName, c.field]),
+        );
+
+        for (const call of result.toolCalls) {
+          const field = clearField.get(call.name);
+
+          if (field) delete call.args[field];
+        }
       }
     }
 
@@ -336,7 +371,6 @@ export class PlanningService {
   private selectToolsForPlanner(
     resourceCandidates: DiscoveredTool[],
     discoveredTools: DiscoveredTool[],
-    message: string,
     requestedCapability: RequestedCapability,
   ) {
     const scoredByCapability = resourceCandidates
@@ -351,20 +385,11 @@ export class PlanningService {
         ? scoredByCapability
         : resourceCandidates.map((tool) => ({ ...tool, capabilityScore: 0 }));
 
-    const actionMatchedTools = capabilityFilteredTools.filter(
-      (tool) => actionOverlap(message, tool.entry.toolName).length > 0,
-    );
-
-    const candidateTools =
-      actionMatchedTools.length > 0
-        ? actionMatchedTools
-        : capabilityFilteredTools;
-
     const hasScoredCandidate =
-      candidateTools.find((tool) => tool.score > 0) !== undefined;
+      capabilityFilteredTools.find((tool) => tool.score > 0) !== undefined;
 
     const bestCandidates = hasScoredCandidate
-      ? candidateTools
+      ? capabilityFilteredTools
           .filter((tool) => tool.score > 0)
           .sort((a, b) => b.score - a.score)
       : discoveredTools;
@@ -391,6 +416,41 @@ export class PlanningService {
     return relevantTools.filter(
       (tool) => capabilityScore(requestedCapability, tool.entry) >= 30,
     );
+  }
+
+  private namedResourceCandidates(
+    relevantTools: DiscoveredTool[],
+    discoveredTools: DiscoveredTool[],
+    message: string,
+    entities: RequestEntities,
+  ): { tool: DiscoveredTool; field: string }[] {
+    if (!namedResourceIn(message)) return [];
+
+    if (isUuid(message)) return [];
+
+    const candidates: { tool: DiscoveredTool; field: string }[] = [];
+
+    for (const tool of relevantTools) {
+      const resolved = resolveArgsFromEntities(tool.entry, entities).args;
+
+      const field = declaredInputs(tool).find((candidateField: string) => {
+        if (!ID_INPUT.test(candidateField) || resolved[candidateField]) {
+          return false;
+        }
+
+        return (
+          discoveredTools.find(
+            (producer) =>
+              producer.entry.server.id === tool.entry.server.id &&
+              producesId(producer, candidateField),
+          ) !== undefined
+        );
+      });
+
+      if (field) candidates.push({ tool, field });
+    }
+
+    return candidates.sort((a, b) => b.tool.score - a.tool.score);
   }
 
   private singleToolResult(
@@ -424,8 +484,10 @@ export class PlanningService {
 
     if (
       singleStrongMatch &&
-      resolveArgsFromEntities(singleStrongMatch.entry, requestedCapability.entities)
-        .satisfied
+      resolveArgsFromEntities(
+        singleStrongMatch.entry,
+        requestedCapability.entities,
+      ).satisfied
     ) {
       return this.singleToolResult(
         singleStrongMatch,

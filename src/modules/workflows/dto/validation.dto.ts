@@ -41,3 +41,9 @@ export const retryStepSchema = z
 	.default({});
 
 export type RetryStepDto = z.infer<typeof retryStepSchema>;
+
+export const selectStepOptionSchema = z.object({
+	value: z.string(),
+});
+
+export type SelectStepOptionDto = z.infer<typeof selectStepOptionSchema>;

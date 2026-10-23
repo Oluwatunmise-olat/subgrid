@@ -8,6 +8,7 @@ import { McpConnectionError } from "@/common/utils/errors/app.error";
 import { McpServerType } from "@/models/mcp-server.model";
 import type { McpServerSecrets } from "@/models/types";
 import { decryptJson } from "@/common/utils/encrypt-decrypt";
+import { interpolateFrom } from "@/common/utils/interpolate-env";
 import { OAuthConnectionsRepository } from "@/repositories";
 import { CatalogService } from "@/modules/catalog/services/catalog.service";
 import { resolveStdioCommand } from "./bridges";
@@ -41,6 +42,20 @@ const SAFE_ENV_KEYS = [
 ];
 
 const SAFE_ENV_PREFIXES = ["NODE_", "NPM_", "npm_", "XDG_", "LC_"];
+
+const referencedKeys = (argv: string[]): string[] => {
+  const keys = new Set<string>();
+
+  for (const arg of argv) {
+    for (const part of arg.split("${").slice(1)) {
+      const end = part.indexOf("}");
+
+      if (end !== -1) keys.add(part.slice(0, end));
+    }
+  }
+
+  return [...keys];
+};
 
 const safeProcessEnv = (): Record<string, string> => {
   const out: Record<string, string> = {};
@@ -83,9 +98,23 @@ export const connectToMcpServer = async (
         fromCatalog?.args ?? server.args,
       );
 
+      const missingArgKeys = referencedKeys(resolved.args).filter(
+        (key) => !secrets.env?.[key],
+      );
+
+      if (missingArgKeys.length) {
+        throw new McpConnectionError(
+          `"${server.name}" is missing a value for ${missingArgKeys.join(", ")}`,
+        );
+      }
+
+      const args = resolved.args.map((arg) =>
+        interpolateFrom(arg, secrets.env || {}),
+      );
+
       const transport = new StdioClientTransport({
         command: resolved.command,
-        args: resolved.args,
+        args,
         env: { ...safeProcessEnv(), ...(secrets.env || {}) },
       });
 

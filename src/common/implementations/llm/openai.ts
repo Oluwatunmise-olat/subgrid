@@ -106,6 +106,7 @@ export class OpenAIllmProcessor {
     conversation: { role: "user" | "assistant"; content: string }[],
     tools: LlmToolSpec[],
     override?: LlmOverride,
+    forceTool?: string,
   ): Promise<LlmPlanResult> {
     const llm = this.getLlm(override);
 
@@ -117,7 +118,11 @@ export class OpenAIllmProcessor {
       schema: tool.schema,
     }));
 
-    const boundLlm = tools.length ? llm.bindTools(toolSpecs) : llm;
+    const boundLlm = !tools.length
+      ? llm
+      : forceTool
+        ? llm.bindTools(toolSpecs, { tool_choice: forceTool })
+        : llm.bindTools(toolSpecs);
 
     const messages = [
       new SystemMessage(systemPrompt),
